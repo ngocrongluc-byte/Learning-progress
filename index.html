@@ -1,0 +1,1155 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>GWEN PLANNER - Học tập</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="GwenPlanner">  
+
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+    <style>
+        body { 
+            font-family: 'Inter', sans-serif; 
+            -webkit-tap-highlight-color: transparent; 
+        }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .pb-safe { padding-bottom: env(safe-area-inset-bottom); }
+        .tkb-cell { min-height: 60px; height: 100%; display: flex; align-items: center; justify-content: center; text-align: center; font-size: 11px; padding: 2px; cursor: pointer; transition: all 0.2s; }
+        .tkb-cell:hover { background-color: #eff6ff; }
+    </style>
+</head>
+<body class="bg-gray-50 text-slate-800">
+    <div id="root"></div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getFirestore, doc, setDoc, onSnapshot, getDoc, collection } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js"; 
+
+        // 1. VUI LÒNG ĐIỀN THÔNG TIN FIREBASE CỦA BẠN VÀO ĐÂY
+        const firebaseConfig = {
+            apiKey: "YOUR_API_KEY",
+            authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
+            projectId: "YOUR_PROJECT_ID",
+            storageBucket: "YOUR_PROJECT_ID.appspot.com",
+            messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        
+        // Cung cấp công cụ cho React
+        window.DB_TOOLS = { db, doc, setDoc, onSnapshot, getDoc, collection };
+    </script>
+
+    <script type="text/babel">
+        const { useState, useEffect, useMemo, useRef } = React;
+
+        // --- HỆ THỐNG ICON ---
+        const Icon = ({ p, size=24, className="" }) => (<svg width={size} height={size} className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d={p}/></svg>);
+        const icons = {
+            grad: "M22 10v6M2 10l10-5 10 5-10 5z M6 12v5c3 3 9 3 12 0v-5", check: "M20 6L9 17l-5-5", clock: "M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20z M12 6v6l4 2",
+            book: "M4 19.5A2.5 2.5 0 0 1 6.5 17H20 M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z", down: "M6 9l6 6 6-6", right: "M9 18l6-6-9-6",
+            trash: "M3 6h18 M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2", plus: "M12 5v14 M5 12h14", x: "M18 6L6 18 M6 6l12 12",
+            cal: "M3 4h18v18H3z M16 2v4 M8 2v4 M3 10h18", act: "M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z", 
+            vid: "M23 7l-7 5 7 5V7z M14 5H3v14h11V5z", eng: "M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm0 18a8 8 0 1 1 8-8 8 8 0 0 1-8 8z",
+            list: "M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01", left: "M15 18l-6-6 6-6",
+            atom: "M12 12m-3 0a3 3 0 1 0 6 0a3 3 0 1 0 -6 0 M20.2 20.2c2.04-2.03.02-7.36-4.5-11.9S4.1 3.05 2 5.1c-2.04 2.03-.02 7.36 4.5 11.9s11.6 5.25 13.7 3.2z M2 20.2c-2.04-2.03-.02-7.36 4.5-11.9S18.1 3.05 20.2 5.1c2.04 2.03.02 7.36-4.5 11.9s-11.6 5.25-13.7 3.2z",
+            grid: "M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z",
+            settings: "M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"
+        };
+        const I = ({ n, ...p }) => <Icon p={icons[n]} {...p} />;
+
+        // --- DỮ LIỆU MẶC ĐỊNH: VẬT LÝ ---
+        const DATA_VAT_LY = [
+            { id: 'general_excluded', title: 'GDTC & QP-AN (Không tính CPA)', requiredCredits: 15, courses: [ { code: 'CME1000', name: 'Giáo dục Quốc phòng - An ninh', credits: 8, required: true }, { code: 'PES1000', name: 'Giáo dục thể chất', credits: 4, required: true }, { code: 'HUS1012', name: 'Kỹ năng bổ trợ', credits: 3, required: true }, ] },
+            { id: 'general', title: 'I. Khối kiến thức chung', requiredCredits: 21, courses: [ { code: 'PHI1006', name: 'Triết học Mác - Lênin', credits: 3, required: true }, { code: 'PEC1008', name: 'Kinh tế chính trị Mác - Lênin', credits: 2, required: true }, { code: 'PHI1002', name: 'CNXH khoa học', credits: 2, required: true }, { code: 'HIS1001', name: 'Lịch sử Đảng CSVN', credits: 2, required: true }, { code: 'POL1001', name: 'Tư tưởng Hồ Chí Minh', credits: 2, required: true }, { code: 'THL1057', name: 'Nhà nước và pháp luật đại cương', credits: 2, required: true }, { code: 'VNU1001', name: 'Công nghệ số và AI', credits: 3, required: true }, { code: 'FLFxxxx', name: 'Ngoại ngữ B1', credits: 5, required: true }, ] },
+            { id: 'field', title: 'II. Khối kiến thức theo lĩnh vực', requiredCredits: 5, courses: [ { code: 'HUS1021', name: 'KH trái đất và sự sống', credits: 3, required: false }, { code: 'HUS1022', name: 'Nhập môn IoT', credits: 2, required: false }, { code: 'HUS1023', name: 'Phân tích dữ liệu', credits: 2, required: false }, { code: 'HUS1024', name: 'Nhập môn Robotics', credits: 3, required: false }, { code: 'HIS1056', name: 'Cơ sở văn hóa VN', credits: 3, required: false }, ] },
+            { id: 'block_compulsory', title: 'III.1. Khối ngành (Bắt buộc)', requiredCredits: 12, courses: [ { code: 'PHY1106', name: 'Đại số tuyến tính', credits: 3, required: true }, { code: 'PHY1107', name: 'Giải tích 1', credits: 3, required: true }, { code: 'PHY1108', name: 'Giải tích 2', credits: 3, required: true }, { code: 'PHY1109', name: 'Xác suất thống kê', credits: 3, required: true }, ] },
+            { id: 'block_elective', title: 'III.2. Khối ngành (Tự chọn)', requiredCredits: 3, courses: [ { code: 'CHE1080', name: 'Hóa học đại cương', credits: 3, required: false }, { code: 'PHY1112', name: 'Vật lý môi trường', credits: 3, required: false }, { code: 'PHY1303', name: 'Lập trình Python', credits: 3, required: false }, { code: 'PHY1113', name: 'Lập trình C', credits: 3, required: false }, { code: 'PHY1114', name: 'Lập trình Matlab', credits: 3, required: false }, ] },
+            { id: 'group_compulsory', title: 'IV.1. Nhóm ngành (Bắt buộc)', requiredCredits: 29, courses: [ { code: 'PHY1348', name: 'Phương pháp toán cho VL', credits: 3, required: true }, { code: 'PHY1050', name: 'Cơ học', credits: 3, required: true }, { code: 'PHY2302', name: 'Nhiệt động học & VLPT', credits: 3, required: true }, { code: 'PHY1314', name: 'Điện và từ học', credits: 3, required: true }, { code: 'PHY2304', name: 'Quang học', credits: 3, required: true }, { code: 'PHY1341', name: 'KH vật liệu đại cương', credits: 3, required: true }, { code: 'PHY2307', name: 'Thực hành VLĐC 1', credits: 2, required: true }, { code: 'PHY2308', name: 'Thực hành VLĐC 2', credits: 2, required: true }, { code: 'PHY2309', name: 'Thực hành VLĐC 3', credits: 2, required: true }, { code: 'PHY3503', name: 'Tiếng Anh chuyên ngành', credits: 2, required: true }, { code: 'PHY2206', name: 'Kỹ thuật điện tử', credits: 3, required: true }, ] },
+            { id: 'group_elective', title: 'IV.2. Nhóm ngành (Tự chọn)', requiredCredits: 3, courses: [ { code: 'PHY3296', name: 'Tiểu luận', credits: 3, required: false }, { code: 'PHY1345', name: 'Kỹ thuật phân tích phổ', credits: 3, required: false }, { code: 'PHY3302', name: 'Điện động lực học', credits: 3, required: false }, { code: 'PHY2000', name: 'Phương pháp NCKH', credits: 3, required: false }, { code: 'PHY3301', name: 'Cơ học lý thuyết', credits: 3, required: false }, ] },
+            { id: 'major_compulsory', title: 'V.1. Kiến thức ngành (Bắt buộc)', requiredCredits: 35, courses: [ { code: 'PHY1440', name: 'Hoá học Vật liệu', credits: 3, required: true }, { code: 'PHY2064', name: 'Vật lý nguyên tử', credits: 2, required: true }, { code: 'PHY1441', name: 'Spintronics và ứng dụng', credits: 3, required: true }, { code: 'PHY1310', name: 'Vật lý bán dẫn', credits: 3, required: true }, { code: 'PHY3169', name: 'Cơ học lượng tử', credits: 3, required: true }, { code: 'PHY3303', name: 'Vật lý thống kê', credits: 3, required: true }, { code: 'PHY3700', name: 'PP thực nghiệm trong KHVL', credits: 3, required: true }, { code: 'PHY3346', name: 'Vật lý chất rắn', credits: 3, required: true }, { code: 'PHY3702', name: 'Cấu trúc thấp chiều & Nano', credits: 3, required: true }, { code: 'PHY3712', name: 'Vật liệu & CN bán dẫn', credits: 3, required: true }, { code: 'PHY3454', name: 'Thực tập thực tế', credits: 3, required: true }, { code: 'PHY3437', name: 'Kỹ thuật đo lường & Xử lý TH', credits: 3, required: true }, ] },
+            { id: 'major_elective', title: 'V.2. Kiến thức ngành (Tự chọn)', requiredCredits: 18, courses: [ { code: 'PHY1340', name: 'CN màng mỏng', credits: 3, required: false }, { code: 'PHY1332', name: 'Thiết kế vi mạch CMOS VLSI', credits: 3, required: false }, { code: 'PHY3351', name: 'Vật lý linh kiện bán dẫn', credits: 3, required: false }, { code: 'PHY1442', name: 'Mở đầu CN đóng gói bán dẫn', credits: 3, required: false }, { code: 'PHY1443', name: 'Mở đầu CN kiểm thử bán dẫn', credits: 3, required: false }, { code: 'PHY1444', name: 'Thực tập chuyên ngành', credits: 3, required: false }, { code: 'PHY1445', name: 'Giới thiệu thiết bị SX bán dẫn', credits: 3, required: false }, { code: 'PHY3465', name: 'Cảm biến và ứng dụng', credits: 3, required: false }, { code: 'PHY3722', name: 'Linh kiện chuyển đổi năng lượng', credits: 3, required: false }, { code: 'PHY3648', name: 'Thiết kế mạch điện tử', credits: 3, required: false }, { code: 'PHY1338', name: 'CN chế tạo vi mạch tích hợp', credits: 3, required: false }, { code: 'PHY3713', name: 'Quang điện tử và quang tử', credits: 3, required: false }, { code: 'PHY3650', name: 'Xử lý tín hiệu số', credits: 3, required: false }, { code: 'PHY3335', name: 'Hệ thống nhúng', credits: 3, required: false }, ] },
+            { id: 'thesis', title: 'V.3. Khóa luận tốt nghiệp', requiredCredits: 7, courses: [ { code: 'PHY4090', name: 'Khóa luận tốt nghiệp', credits: 7, required: false }, { code: 'PHY1363', name: 'Vật lý hiện đại', credits: 4, required: false }, { code: 'PHY1358', name: 'VL micro và nano', credits: 3, required: false }, ] }
+        ];
+
+        // --- CÁC COMPONENT GIAO DIỆN ---
+        const UserHeader = () => {
+            return (
+                <div className="bg-white/80 backdrop-blur-md border-b border-slate-100 sticky top-0 z-30 shadow-sm transition-all">
+                    <div className="flex justify-between items-center p-4">
+                        <span className="font-extrabold text-slate-800 tracking-tight">Gwen Planner</span>
+                    </div>
+                </div>
+            );
+        }
+
+        const PlaceholderView = ({title, icon}) => (
+            <div className="flex flex-col items-center justify-center h-[60vh] text-gray-400">
+                <div className="mb-4 bg-slate-100 p-6 rounded-full"><I n={icon} size={48}/></div>
+                <h3 className="font-bold text-lg text-slate-600">{title}</h3>
+                <p className="text-sm">Tính năng đang được phát triển...</p>
+            </div>
+        );
+
+        const TrackerView = ({ courseData, statusMap, updateStatusMap, scoreMap, updateScoreMap, isReadOnly }) => {
+            const [expandedSections, setExpandedSections] = useState(courseData.map(s => s.id));
+            const toggleSection = (id) => setExpandedSections(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+            
+            useEffect(() => { setExpandedSections(courseData.map(s => s.id)); }, [courseData]);
+
+            const handleStatus = (code, status) => {
+                if(isReadOnly) return;
+                const next = {...statusMap};
+                statusMap[code] === status ? delete next[code] : next[code] = status;
+                updateStatusMap(next);
+            };
+
+            const handleScore = (code, val) => {
+                if(isReadOnly) return;
+                const next = {...scoreMap};
+                val === '' ? delete next[code] : next[code] = parseFloat(val);
+                updateScoreMap(next);
+            };
+
+            const stats = useMemo(() => {
+                let studiedCredits = 0, totalScorePoints = 0, gpaCredits = 0;
+                courseData.forEach(s => { 
+                    if (s.id === 'general_excluded') return; 
+                    s.courses.forEach(c => {
+                        if (statusMap[c.code] === 'studied') {
+                            studiedCredits += c.credits;
+                            const sc = scoreMap ? scoreMap[c.code] : undefined;
+                            if (sc !== undefined && !isNaN(sc)) {
+                                totalScorePoints += sc * c.credits;
+                                gpaCredits += c.credits;
+                            }
+                        }
+                    });
+                });
+                const cpa = gpaCredits > 0 ? (totalScorePoints / gpaCredits).toFixed(2) : "0.00";
+                const totalTarget = courseData.reduce((acc, sec) => acc + (sec.id === 'general_excluded' ? 0 : sec.requiredCredits), 0);
+                return { studiedCredits, cpa, totalTarget };
+            }, [statusMap, scoreMap, courseData]);
+
+            return (
+                <div className="pb-24 p-4 md:p-8 max-w-7xl mx-auto font-sans">
+                    <div className="mb-8"><h1 className="text-3xl font-extrabold text-slate-800 tracking-tight mb-2">Tổng quan học tập</h1><p className="text-slate-500">Quản lý tiến độ và điểm trung bình tích lũy (CPA)</p></div>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10"><div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex items-center gap-4"><div className="w-14 h-14 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center"><I n="book" size={28}/></div><div><div className="text-4xl font-extrabold text-slate-800">{stats.studiedCredits}</div><div className="text-xs font-bold text-slate-400 uppercase tracking-wider mt-1">Tín chỉ tích lũy</div></div></div><div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex items-center gap-4"><div className="w-14 h-14 bg-emerald-100 text-emerald-600 rounded-2xl flex items-center justify-center"><I n="grad" size={28}/></div><div><div className="text-4xl font-extrabold text-slate-800">{stats.cpa}</div><div className="text-xs font-bold text-emerald-600 uppercase tracking-wider mt-1 bg-emerald-50 px-2 py-0.5 rounded-full">CPA Tạm tính</div></div></div><div className="bg-gradient-to-br from-slate-800 to-slate-900 p-6 rounded-2xl shadow-xl text-white flex flex-col justify-center"><div className="flex justify-between items-end mb-2"><div className="font-bold text-lg">Tiến độ</div><div className="text-2xl font-bold">{Math.round((stats.studiedCredits/stats.totalTarget)*100) || 0}%</div></div><div className="w-full bg-white/20 rounded-full h-2 overflow-hidden"><div className="bg-emerald-400 h-full transition-all duration-1000" style={{width: `${(stats.studiedCredits/stats.totalTarget)*100}%`}}></div></div><div className="text-slate-400 text-xs mt-3">Mục tiêu: {stats.totalTarget} tín chỉ</div></div></div>
+                    <div className="space-y-6">{courseData.map(sec => { const isExpanded = expandedSections.includes(sec.id); const finishedCount = sec.courses.filter(c => statusMap[c.code] === 'studied').length; return (<div key={sec.id} className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden hover:shadow-md transition-all"><button onClick={() => toggleSection(sec.id)} className="w-full px-6 py-4 flex justify-between items-center bg-white"><div className="flex items-center gap-4"><div className={`w-1.5 h-10 rounded-full ${finishedCount === sec.courses.length ? 'bg-emerald-500' : 'bg-indigo-500'}`}></div><div className="text-left"><div className="font-bold text-slate-800 text-lg">{sec.title}</div><div className="text-xs text-slate-500 font-medium mt-0.5">{sec.requiredCredits} tín chỉ • Đã xong {finishedCount} môn</div></div></div><div className={`w-8 h-8 flex items-center justify-center rounded-full bg-slate-50 text-slate-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`}><I n="down" size={16}/></div></button>{isExpanded && <div className="p-4 bg-slate-50/50 grid grid-cols-1 lg:grid-cols-2 gap-4 border-t border-slate-100">{sec.courses.map(c => { const st = statusMap[c.code]; const sc = scoreMap ? scoreMap[c.code] : ''; return (<div key={c.code} className={`p-4 rounded-xl border transition-all relative group ${st === 'studied' ? 'bg-white border-emerald-200 shadow-sm' : st === 'studying' ? 'bg-white border-orange-200 shadow-sm' : 'bg-slate-50 border-slate-100 opacity-70 hover:opacity-100 hover:bg-white hover:border-indigo-100'}`}><div className="flex justify-between items-start"><div className="flex-1 pr-4"><div className="flex items-center gap-2 mb-1"><span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-slate-100 text-slate-500">{c.code}</span>{c.required && <span className="w-2 h-2 rounded-full bg-red-400" title="Bắt buộc"></span>}</div><div className="font-bold text-slate-700 leading-tight mb-1">{c.name}</div><div className="text-xs text-slate-400">{c.credits} TC</div></div><div className="flex flex-col gap-1"><button onClick={() => handleStatus(c.code, 'studying')} className={`p-2 rounded-lg transition-all ${st==='studying'?'bg-orange-500 text-white shadow-lg shadow-orange-200':'bg-slate-100 text-slate-300 hover:bg-orange-100 hover:text-orange-500'}`}><I n="clock" size={16}/></button><button onClick={() => handleStatus(c.code, 'studied')} className={`p-2 rounded-lg transition-all ${st==='studied'?'bg-emerald-500 text-white shadow-lg shadow-emerald-200':'bg-slate-100 text-slate-300 hover:bg-emerald-100 hover:text-emerald-500'}`}><I n="check" size={16}/></button></div></div>{st === 'studied' && (<div className="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between animate-in fade-in slide-in-from-top-1"><label className="text-xs font-bold text-emerald-600 uppercase tracking-wide">Điểm số</label><div className="relative"><input type="number" step="0.1" min="0" max="10" placeholder="0.0" className="w-20 pl-3 pr-2 py-1.5 text-right text-sm font-bold text-emerald-700 bg-emerald-50 border border-emerald-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all" value={sc || ''} onChange={e => handleScore(c.code, e.target.value)} disabled={isReadOnly}/></div></div>)}</div>) })}</div>}</div>) })}</div>
+                </div>
+            );
+        };
+
+        const MonthCalendar = ({ examSchedule, taskList }) => { 
+            const [currentDate, setCurrentDate] = useState(new Date());
+            const getDaysInMonth = (date) => new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
+            const getFirstDayOfMonth = (date) => new Date(date.getFullYear(), date.getMonth(), 1).getDay();
+            const changeMonth = (offset) => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + offset, 1));
+            const daysInMonth = getDaysInMonth(currentDate);
+            const firstDay = getFirstDayOfMonth(currentDate);
+            const days = [];
+            for (let i = 0; i < firstDay; i++) days.push(null);
+            for (let i = 1; i <= daysInMonth; i++) days.push(new Date(currentDate.getFullYear(), currentDate.getMonth(), i));
+            const getEventsForDay = (date) => {
+                if (!date) return [];
+                const dStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+                const exams = (examSchedule || []).filter(e => e.date === dStr).map(e => ({ ...e, type: 'exam' }));
+                const tasks = (taskList || []).filter(t => t.dueDate === dStr && !t.completed).map(t => ({ ...t, type: 'task', subject: t.title }));
+                return [...exams, ...tasks];
+            };
+            const isToday = (date) => date && date.getDate() === new Date().getDate() && date.getMonth() === new Date().getMonth();
+
+            return (
+                <div className="bg-white rounded-3xl shadow-sm border border-slate-200 p-6 mb-8 animate-in fade-in duration-500">
+                    <div className="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
+                        <div className="flex items-center gap-4"><h2 className="text-xl font-extrabold text-slate-800 capitalize tracking-tight">Tháng {currentDate.getMonth() + 1}, {currentDate.getFullYear()}</h2><div className="flex gap-1 bg-slate-100 p-1 rounded-full"><button onClick={() => changeMonth(-1)} className="p-2 hover:bg-white hover:shadow-sm rounded-full text-slate-500 transition-all"><I n="left" size={16}/></button><button onClick={() => changeMonth(1)} className="p-2 hover:bg-white hover:shadow-sm rounded-full text-slate-500 transition-all"><I n="right" size={16}/></button></div></div>
+                        <div className="flex flex-wrap gap-3 text-[10px] font-bold bg-slate-50 px-3 py-2 rounded-xl border border-slate-100"><span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-rose-500"></span> Thi</span><span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-amber-500"></span> Deadline</span></div>
+                    </div>
+                    <div className="border border-slate-100 rounded-2xl overflow-hidden shadow-[0_0_0_1px_rgba(241,245,249,1)]"><div className="grid grid-cols-7 bg-slate-50/80 border-b border-slate-100 backdrop-blur-sm">{['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'].map(d => (<div key={d} className="py-3 text-center text-[10px] md:text-xs font-bold text-slate-400 uppercase tracking-wider">{d}</div>))}</div><div className="grid grid-cols-7 auto-rows-fr bg-white">{days.map((date, idx) => { if (!date) return <div key={idx} className="h-28 md:h-36 border-b border-r border-slate-50 bg-slate-50/30"></div>; const events = getEventsForDay(date); const today = isToday(date); return (<div key={idx} className={`h-28 md:h-36 border-b border-r border-slate-50 p-1.5 relative group transition-all hover:bg-slate-50/80 ${today ? 'bg-indigo-50/20' : ''}`}><div className={`w-6 h-6 flex items-center justify-center rounded-lg text-xs font-bold mb-1 transition-all ${today ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200 scale-105' : 'text-slate-500 group-hover:text-indigo-600'}`}>{date.getDate()}</div><div className="space-y-1 overflow-y-auto max-h-[calc(100%-2rem)] no-scrollbar">{events.map((ev, i) => (<div key={i} className={`text-[9px] px-1.5 py-1 rounded-md font-bold truncate flex items-center gap-1.5 border transition-transform hover:scale-[1.02] cursor-default ${ev.type === 'exam' ? 'bg-rose-50 text-rose-700 border-rose-100' : 'bg-amber-50 text-amber-700 border-amber-100'}`}><span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${ev.type === 'exam' ? 'bg-rose-500' : 'bg-amber-500'}`}></span><span className="truncate">{ev.subject}</span></div>))}</div></div>); })}</div></div>
+                </div>
+            );
+        };
+
+        const ScheduleView = ({ scheduleList, updateScheduleList, taskList, updateTaskList, timetableData, updateTimetableData, examSchedule, updateExamSchedule, isReadOnly }) => {
+            const [viewMode, setViewMode] = useState('month'); 
+            const [showClassModal, setShowClassModal] = useState(false);
+            const [newClass, setNewClass] = useState({ subject: '', room: '', day: 'Thứ 2', time: '07:00', endTime: '08:50' });
+            const [showTaskModal, setShowTaskModal] = useState(false);
+            const [newTask, setNewTask] = useState({ title: '', course: '', priority: 'medium', dueDate: '', dueTime: '' });
+            const [showGridModal, setShowGridModal] = useState(false);
+            const [selectedCell, setSelectedCell] = useState(null);
+            const [gridInput, setGridInput] = useState({ subject: "", room: "" });
+            const [showExamModal, setShowExamModal] = useState(false);
+            const [newExam, setNewExam] = useState({ subject: '', date: '', time: '', room: '', format: 'Vấn đáp' });
+
+            const uniqueSubjects = useMemo(() => { const subjects = new Set(); Object.values(timetableData).forEach(cell => { const name = (typeof cell === 'object' && cell !== null) ? cell.subject : cell; if (name) subjects.add(name.trim()); }); return Array.from(subjects).sort(); }, [timetableData]);
+            const getSubjectColor = (subjectName) => { if (!subjectName) return 'bg-white hover:bg-slate-50'; const PALETTE = ['bg-red-50 text-red-700 border-red-200', 'bg-blue-50 text-blue-700 border-blue-200', 'bg-emerald-50 text-emerald-700 border-emerald-200', 'bg-amber-50 text-amber-700 border-amber-200', 'bg-purple-50 text-purple-700 border-purple-200', 'bg-cyan-50 text-cyan-700 border-cyan-200', 'bg-rose-50 text-rose-700 border-rose-200', 'bg-indigo-50 text-indigo-700 border-indigo-200', 'bg-lime-50 text-lime-700 border-lime-200', 'bg-fuchsia-50 text-fuchsia-700 border-fuchsia-200', 'bg-orange-50 text-orange-700 border-orange-200', 'bg-teal-50 text-teal-700 border-teal-200', 'bg-sky-50 text-sky-700 border-sky-200', 'bg-violet-50 text-violet-700 border-violet-200', 'bg-pink-50 text-pink-700 border-pink-200', 'bg-yellow-50 text-yellow-700 border-yellow-200', 'bg-green-50 text-green-700 border-green-200', 'bg-slate-100 text-slate-700 border-slate-300', 'bg-stone-100 text-stone-700 border-stone-300', 'bg-zinc-100 text-zinc-700 border-zinc-300']; const index = uniqueSubjects.indexOf(subjectName.trim()); if (index === -1) return PALETTE[0]; return PALETTE[index % PALETTE.length]; };
+            const groupedClasses = useMemo(() => { const daysOrder = ['Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7', 'Chủ nhật']; return daysOrder.map(day => ({ day, classes: scheduleList.filter(c => c.day === day).sort((a, b) => a.time.localeCompare(b.time)) })).filter(group => group.classes.length > 0); }, [scheduleList]);
+
+            const addClass = () => { if(isReadOnly) return; if(!newClass.subject) return alert("Vui lòng nhập tên môn!"); updateScheduleList([...scheduleList, { ...newClass, id: Date.now() }]); setShowClassModal(false); setNewClass({ subject: '', room: '', day: 'Thứ 2', time: '07:00', endTime: '08:50' }); };
+            const addTask = () => { if(isReadOnly) return; if(!newTask.title) return alert("Nhập tên nhiệm vụ!"); updateTaskList([...(taskList||[]), { ...newTask, id: Date.now(), completed: false }]); setShowTaskModal(false); setNewTask({ title: '', course: '', priority: 'medium', dueDate: '', dueTime: '' }); };
+            const toggleTask = (id) => { if(isReadOnly) return; updateTaskList((taskList||[]).map(t => t.id === id ? { ...t, completed: !t.completed } : t)); };
+            const deleteTask = (e, id) => { e.stopPropagation(); if(isReadOnly) return; if(confirm("Xóa mục này?")) updateTaskList((taskList||[]).filter(t => t.id !== id)); };
+            const addExam = () => { if(isReadOnly) return; if(!newExam.subject || !newExam.date) return alert("Thiếu thông tin!"); updateExamSchedule([...(examSchedule||[]), {...newExam, id: Date.now()}].sort((a,b)=>new Date(a.date)-new Date(b.date))); setShowExamModal(false); setNewExam({ subject: '', date: '', time: '', room: '', format: 'Vấn đáp' }); };
+            const handleCellClick = (d, p) => { if(isReadOnly) return; setSelectedCell({ dayIndex: d, period: p }); const current = timetableData[`${d}-${p}`]; setGridInput(typeof current === 'object' && current ? { subject: current.subject || "", room: current.room || "" } : { subject: current || "", room: "" }); setShowGridModal(true); };
+            const saveGridCell = () => { updateTimetableData({ ...timetableData, [`${selectedCell.dayIndex}-${selectedCell.period}`]: gridInput }); setShowGridModal(false); };
+            const deleteGridCell = () => { const next = {...timetableData}; next[`${selectedCell.dayIndex}-${selectedCell.period}`] = null; updateTimetableData(next); setShowGridModal(false); };
+            const getCellProps = (dayIndex, period) => { const current = timetableData[`${dayIndex}-${period}`]; if (!current || (typeof current === 'object' && !current.subject)) return { render: true, rowSpan: 1 }; const prev = timetableData[`${dayIndex}-${period-1}`]; const isSame = (a,b) => (a?.subject === b?.subject && a?.room === b?.room); if (isSame(current, prev)) return { render: false, rowSpan: 1 }; let span = 1; while (period + span <= 12 && isSame(current, timetableData[`${dayIndex}-${period+span}`])) span++; return { render: true, rowSpan: span }; };
+            const getPriorityColor = (p) => p === 'high' ? 'bg-rose-50 text-rose-600 border-rose-200 font-bold' : p === 'medium' ? 'bg-orange-50 text-orange-600 border-orange-200 font-bold' : 'bg-slate-100 text-slate-500 border-slate-200 font-bold';
+            const getClassCardStyle = (index) => [{ bg: 'bg-violet-50/50', border: 'border-violet-200', accent: 'bg-violet-500', text: 'text-violet-900', subtext: 'text-violet-600', badge: 'bg-white text-violet-700 shadow-sm' }, { bg: 'bg-sky-50/50', border: 'border-sky-200', accent: 'bg-sky-500', text: 'text-sky-900', subtext: 'text-sky-600', badge: 'bg-white text-sky-700 shadow-sm' }, { bg: 'bg-teal-50/50', border: 'border-teal-200', accent: 'bg-teal-500', text: 'text-teal-900', subtext: 'text-teal-600', badge: 'bg-white text-teal-700 shadow-sm' }, { bg: 'bg-rose-50/50', border: 'border-rose-200', accent: 'bg-rose-500', text: 'text-rose-900', subtext: 'text-rose-600', badge: 'bg-white text-rose-700 shadow-sm' }, { bg: 'bg-amber-50/50', border: 'border-amber-200', accent: 'bg-amber-500', text: 'text-amber-900', subtext: 'text-amber-600', badge: 'bg-white text-amber-700 shadow-sm' }][index % 5];
+            const pendingTasks = (taskList || []).filter(t => !t.completed).sort((a,b) => { const pOrder = { high: 1, medium: 2, low: 3 }; if (pOrder[a.priority] !== pOrder[b.priority]) return pOrder[a.priority] - pOrder[b.priority]; return new Date(a.dueDate || '9999') - new Date(b.dueDate || '9999'); });
+            const completedTasks = (taskList || []).filter(t => t.completed);
+
+            return (
+                <div className="p-4 md:p-8 max-w-7xl mx-auto font-sans pb-32">
+                     <div className="flex flex-col md:flex-row justify-between items-center mb-8 gap-6"><div className="text-center md:text-left"><h1 className="text-3xl font-extrabold text-slate-800 tracking-tight mb-1">Lịch trình</h1><p className="text-slate-500 text-sm font-medium">Quản lý lớp học, nhiệm vụ và thi cử</p></div><div className="bg-white p-1.5 rounded-2xl flex shadow-sm border border-slate-200 overflow-x-auto max-w-full">{[{id:'month',l:'Lịch tháng'}, {id:'list',l:'Lớp học'}, {id:'tasks',l:'Nhiệm vụ'}, {id:'table',l:'TKB Tuần'}, {id:'exam',l:'Lịch thi'}].map(mode => (<button key={mode.id} onClick={()=>setViewMode(mode.id)} className={`px-5 py-2.5 text-xs font-bold rounded-xl transition-all whitespace-nowrap ${viewMode===mode.id ? 'bg-slate-900 text-white shadow-md' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-50'}`}>{mode.l}</button>))}</div></div>
+                     {viewMode === 'month' && <MonthCalendar examSchedule={examSchedule} taskList={taskList} />}
+                     {viewMode === 'list' && (<div className="space-y-10 animate-in fade-in slide-in-from-bottom-4">{groupedClasses.length > 0 ? (groupedClasses.map((group) => (<div key={group.day}><h3 className="text-lg font-extrabold text-slate-700 mb-4 flex items-center gap-3"><div className="w-1.5 h-6 bg-indigo-500 rounded-full"></div>{group.day}</h3><div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">{group.classes.map((item, idx) => { const theme = getClassCardStyle(idx); return (<div key={item.id} className={`rounded-2xl overflow-hidden shadow-sm hover:shadow-xl relative group transition-all backdrop-blur-md border ${theme.border} ${theme.bg}`}><div className="p-5 pl-7 relative z-10"><div className="flex justify-between items-start mb-3"><span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-lg ${theme.badge}`}>{item.time} - {item.endTime || '??:??'}</span>{!isReadOnly && <button onClick={() => updateScheduleList(scheduleList.filter(i => i.id !== item.id))} className={`opacity-0 group-hover:opacity-100 transition-opacity ${theme.subtext} hover:text-red-500`}><I n="trash" size={18}/></button>}</div><h3 className={`text-xl font-extrabold ${theme.text} mb-4 leading-tight`}>{item.subject}</h3><div className={`flex flex-col gap-2 text-sm font-medium ${theme.subtext}`}><div className="flex items-center gap-3"><div className="bg-white/50 p-1.5 rounded-full"><I n="grad" size={14}/></div> <span>{item.room}</span></div></div></div><div className={`absolute left-0 top-0 bottom-0 w-1.5 ${theme.accent}`}></div></div>); })}</div></div>))) : (<div className="text-center py-20 text-slate-400 border-2 border-dashed border-slate-200 rounded-3xl">Chưa có lớp học nào</div>)}{!isReadOnly && <button onClick={() => setShowClassModal(true)} className="fixed bottom-24 right-6 md:bottom-10 md:right-10 bg-slate-900 hover:bg-slate-800 text-white p-4 rounded-full shadow-xl shadow-slate-300 z-50 hover:scale-110 transition-transform"><I n="plus" size={24}/></button>}</div>)}
+                     {viewMode === 'tasks' && (<div className="animate-in fade-in space-y-6"><div><h3 className="font-bold text-slate-800 mb-3 flex items-center gap-2 text-lg">📌 Cần làm <span className="text-xs bg-indigo-100 text-indigo-600 px-2 py-0.5 rounded-full">{pendingTasks.length}</span></h3><div className="space-y-3">{pendingTasks.map(item => (<div key={item.id} onClick={() => toggleTask(item.id)} className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm hover:shadow-md cursor-pointer flex items-center gap-4 transition-all hover:border-indigo-300 group"><div className="w-5 h-5 rounded-full border-2 border-slate-300 group-hover:border-indigo-500 transition-colors"></div><div className="flex-1 min-w-0"><div className="flex items-center gap-2 mb-1"><span className={`text-[10px] px-2 py-0.5 rounded uppercase ${getPriorityColor(item.priority)}`}>{item.priority}</span>{item.course && <span className="text-[10px] font-bold bg-slate-100 text-slate-600 px-2 py-0.5 rounded border border-slate-200 uppercase">{item.course}</span>}</div><div className="font-bold text-slate-800">{item.title}</div></div>{(item.dueDate || item.dueTime) && (<div className={`text-xs font-mono font-bold ${item.priority === 'high' ? 'text-red-500' : 'text-slate-400'}`}>{item.dueTime} {item.dueDate ? new Date(item.dueDate).toLocaleDateString('vi-VN', {day:'2-digit', month:'2-digit'}) : ''}</div>)}{!isReadOnly && <button onClick={(e) => deleteTask(e, item.id)} className="p-2 text-slate-300 hover:text-red-500 transition-colors"><I n="trash" size={16}/></button>}</div>))}{pendingTasks.length === 0 && <div className="text-center py-8 text-slate-400 italic text-sm">Không có nhiệm vụ nào.</div>}</div></div>{completedTasks.length > 0 && (<div><h3 className="font-bold text-slate-400 mb-3 flex items-center gap-2 text-sm uppercase tracking-wider mt-8">✅ Đã hoàn thành <span className="text-xs bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full">{completedTasks.length}</span></h3><div className="space-y-2 opacity-60 hover:opacity-100 transition-opacity">{completedTasks.map(item => (<div key={item.id} onClick={() => toggleTask(item.id)} className="bg-slate-50 p-3 rounded-lg border border-slate-100 flex items-center gap-4 cursor-pointer"><div className="w-5 h-5 rounded-full bg-indigo-500 flex items-center justify-center"><I n="check" size={12} className="text-white"/></div><div className="flex-1 font-medium text-slate-500 line-through text-sm">{item.title}</div>{!isReadOnly && <button onClick={(e) => deleteTask(e, item.id)} className="text-slate-300 hover:text-red-500"><I n="trash" size={14}/></button>}</div>))}</div></div>)}{!isReadOnly && <button onClick={() => setShowTaskModal(true)} className="fixed bottom-24 right-6 md:bottom-10 md:right-10 bg-slate-900 hover:bg-slate-800 text-white p-4 rounded-full shadow-xl shadow-slate-300 z-50 hover:scale-110 transition-transform"><I n="plus" size={24}/></button>}</div>)}
+                     {viewMode === 'exam' && (<div className="grid grid-cols-1 md:grid-cols-2 gap-5 animate-in fade-in">{(examSchedule || []).map(item => (<div key={item.id} className="bg-white rounded-2xl border border-rose-100 shadow-sm overflow-hidden relative group hover:shadow-lg transition-all"><div className="absolute left-0 top-0 bottom-0 w-1.5 bg-rose-500"></div><div className="p-5 pl-7 bg-rose-50/30"><div className="flex justify-between items-start mb-3"><span className="text-[10px] font-bold bg-white text-rose-600 border border-rose-200 px-2 py-1 rounded uppercase flex items-center gap-1 shadow-sm"><I n="clock" size={10}/> {new Date(item.date).toLocaleDateString('vi-VN')}</span><button onClick={() => { const s = new Date(`${item.date}T${item.time}`).toISOString().replace(/-|:|\.\d\d\d/g,""); const e = new Date(new Date(`${item.date}T${item.time}`).getTime()+90*60000).toISOString().replace(/-|:|\.\d\d\d/g,""); window.open(`https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent("Thi: "+item.subject)}&dates=${s}/${e}&details=${encodeURIComponent(item.format)}&location=${encodeURIComponent(item.room)}`,'_blank'); }} className="text-[10px] font-bold bg-white text-slate-500 hover:text-indigo-600 px-2 py-1 rounded border border-slate-200 transition-colors shadow-sm">Calendar</button></div><h3 className="text-lg font-extrabold text-slate-800 mb-4 leading-snug">{item.subject}</h3><div className="flex items-center justify-between text-xs font-medium text-slate-600 mt-2"><div className="flex items-center gap-3"><span className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 bg-rose-400 rounded-full"></span> {item.time}</span><span className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 bg-slate-400 rounded-full"></span> {item.room}</span></div><span className="bg-white px-2 py-0.5 rounded border border-rose-100 text-rose-600 font-bold">{item.format}</span></div>{!isReadOnly && <button onClick={() => updateExamSchedule(examSchedule.filter(i => i.id !== item.id))} className="absolute bottom-4 right-4 text-slate-300 hover:text-rose-600 opacity-0 group-hover:opacity-100 transition-all"><I n="trash" size={18}/></button>}</div></div>))}{(!examSchedule || examSchedule.length === 0) && <div className="col-span-full text-center text-slate-400 py-16 border-2 border-dashed border-rose-100 bg-rose-50/10 rounded-3xl">Chưa có lịch thi.</div>}{!isReadOnly && <button onClick={() => setShowExamModal(true)} className="fixed bottom-24 right-6 md:bottom-10 md:right-10 bg-rose-600 hover:bg-rose-700 text-white p-4 rounded-full shadow-xl shadow-rose-300 z-50 hover:scale-110 transition-transform"><I n="plus" size={24}/></button>}</div>)}
+                     {viewMode === 'table' && (<div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden animate-in fade-in"><div className="overflow-x-auto"><div className="min-w-[800px]"><table className="w-full border-collapse"><thead><tr><th className="p-3 bg-slate-50 text-xs font-bold text-slate-400 uppercase w-12 border-b border-slate-100">Tiết</th>{["T2", "T3", "T4", "T5", "T6", "T7", "CN"].map(d => <th key={d} className="p-3 bg-slate-50 text-xs font-bold text-slate-600 border-b border-l border-slate-100 w-[13%]">{d}</th>)}</tr></thead><tbody>{Array.from({length: 12}, (_, i) => i + 1).map(p => (<tr key={p}><td className="p-2 text-center text-xs font-bold text-slate-400 bg-slate-50/50 border-b border-slate-100 h-16">{p}</td>{Array.from({length: 7}).map((_, dIdx) => { const { render, rowSpan } = getCellProps(dIdx, p); if (!render) return null; const content = timetableData[`${dIdx}-${p}`]; const cellData = (typeof content === 'object' && content !== null) ? content : { subject: content, room: '' }; const cellColor = cellData.subject ? getSubjectColor(cellData.subject) : 'hover:bg-slate-50'; return (<td key={dIdx} rowSpan={rowSpan} onClick={() => handleCellClick(dIdx, p)} className={`border-b border-l border-slate-100 p-1 cursor-pointer transition-colors relative group h-16 ${cellColor} ${!cellData.subject && 'hover:bg-slate-50'}`}>{cellData.subject && (<div className="w-full h-full flex flex-col items-center justify-center text-center p-1 leading-tight gap-0.5"><div className="text-[10px] font-bold line-clamp-2">{cellData.subject}</div>{cellData.room && <div className="text-[9px] font-mono font-bold bg-white/40 px-1.5 py-0.5 rounded shadow-sm">{cellData.room}</div>}</div>)}</td>); })}</tr>))}</tbody></table></div></div></div>)}
+                     {showClassModal && (<div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"><div className="bg-white rounded-2xl w-full max-w-sm p-6 shadow-2xl"><h3 className="font-extrabold text-xl mb-4 text-slate-800">Thêm lớp học</h3><div className="mb-3"><label className="text-xs font-bold text-slate-400 ml-1 mb-1 block">Tên môn học</label><input className="w-full bg-slate-50 border border-slate-200 p-3 rounded-xl text-sm focus:border-indigo-500 outline-none font-bold" placeholder="Nhập tên môn..." value={newClass.subject} onChange={e => setNewClass({...newClass, subject: e.target.value})} /></div><div className="mb-3"><label className="text-xs font-bold text-slate-400 ml-1 mb-1 block">Thứ</label><select className="w-full bg-slate-50 border border-slate-200 p-3 rounded-xl text-sm outline-none font-medium" value={newClass.day} onChange={e => setNewClass({...newClass, day: e.target.value})}>{['Thứ 2','Thứ 3','Thứ 4','Thứ 5','Thứ 6','Thứ 7','Chủ nhật'].map(d=><option key={d} value={d}>{d}</option>)}</select></div><div className="flex gap-3 mb-3"><div className="flex-1"><label className="text-xs font-bold text-slate-400 ml-1 mb-1 block">Bắt đầu</label><input type="time" className="w-full bg-slate-50 border border-slate-200 p-3 rounded-xl text-sm outline-none font-medium" value={newClass.time} onChange={e => setNewClass({...newClass, time: e.target.value})} /></div><div className="flex-1"><label className="text-xs font-bold text-slate-400 ml-1 mb-1 block">Kết thúc</label><input type="time" className="w-full bg-slate-50 border border-slate-200 p-3 rounded-xl text-sm outline-none font-medium" value={newClass.endTime} onChange={e => setNewClass({...newClass, endTime: e.target.value})} /></div></div><input className="w-full bg-slate-50 border border-slate-200 p-3 rounded-xl mb-6 text-sm outline-none font-medium" placeholder="Phòng học (VD: A2-301)" value={newClass.room} onChange={e => setNewClass({...newClass, room: e.target.value})} /><div className="flex justify-end gap-3"><button onClick={() => setShowClassModal(false)} className="px-5 py-2.5 text-slate-500 font-bold hover:bg-slate-50 rounded-xl">Hủy</button><button onClick={addClass} className="px-5 py-2.5 bg-slate-900 text-white rounded-xl font-bold hover:bg-slate-800">Lưu</button></div></div></div>)}
+                     {showTaskModal && (<div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"><div className="bg-white rounded-2xl w-full max-w-sm p-6 shadow-2xl"><h3 className="font-extrabold text-xl mb-4 text-slate-800">Thêm nhiệm vụ</h3><input autoFocus className="w-full bg-slate-50 border border-slate-200 p-3 rounded-xl mb-3 text-sm focus:border-indigo-500 outline-none font-medium" placeholder="Tên nhiệm vụ..." value={newTask.title} onChange={e => setNewTask({...newTask, title: e.target.value})} /><input className="w-full bg-slate-50 border border-slate-200 p-3 rounded-xl mb-3 text-sm outline-none font-medium" placeholder="Môn học (Tùy chọn)..." value={newTask.course} onChange={e => setNewTask({...newTask, course: e.target.value})} /><div className="mb-3 flex gap-2">{['high', 'medium', 'low'].map(p => (<button key={p} onClick={() => setNewTask({...newTask, priority: p})} className={`flex-1 py-2 rounded-xl text-xs font-bold border transition-all ${newTask.priority === p ? getPriorityColor(p) + ' ring-1 ring-offset-1' : 'bg-white border-slate-200 text-slate-400'}`}>{p.toUpperCase()}</button>))}</div><div className="flex gap-3 mb-6"><input type="date" className="bg-slate-50 border border-slate-200 p-3 rounded-xl text-sm flex-1 outline-none font-medium" value={newTask.dueDate} onChange={e => setNewTask({...newTask, dueDate: e.target.value})} /><input type="time" className="bg-slate-50 border border-slate-200 p-3 rounded-xl text-sm w-28 outline-none font-medium" value={newTask.dueTime} onChange={e => setNewTask({...newTask, dueTime: e.target.value})} /></div><div className="flex justify-end gap-3"><button onClick={() => setShowTaskModal(false)} className="px-5 py-2.5 text-slate-500 font-bold hover:bg-slate-50 rounded-xl">Hủy</button><button onClick={addTask} className="px-5 py-2.5 bg-indigo-600 text-white rounded-xl font-bold">Thêm Task</button></div></div></div>)}
+                     {showGridModal && (<div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"><div className="bg-white rounded-2xl w-full max-w-sm p-6 shadow-2xl"><h3 className="font-extrabold text-xl mb-1 text-slate-800">Cập nhật TKB</h3><p className="text-xs text-slate-400 mb-6 font-bold uppercase tracking-wide">Thứ {selectedCell.dayIndex + 2} • Tiết {selectedCell.period}</p><div className="space-y-3 mb-6"><div><label className="text-xs font-bold text-slate-400 ml-1 mb-1 block">Môn học</label><input autoFocus className="w-full bg-slate-50 border border-slate-200 p-4 rounded-2xl text-sm outline-none font-bold text-slate-700" placeholder="Nhập tên môn..." value={gridInput.subject} onChange={e => setGridInput({...gridInput, subject: e.target.value})} /></div><div><label className="text-xs font-bold text-slate-400 ml-1 mb-1 block">Giảng đường / Phòng</label><input className="w-full bg-slate-50 border border-slate-200 p-4 rounded-2xl text-sm outline-none font-bold text-slate-700" placeholder="VD: A2-405" value={gridInput.room} onChange={e => setGridInput({...gridInput, room: e.target.value})} /></div></div><div className="flex justify-end gap-2"><button onClick={() => setShowGridModal(false)} className="px-4 py-2 text-slate-400 font-bold hover:text-slate-600">Hủy</button><button onClick={deleteGridCell} className="px-4 py-2 text-rose-500 hover:bg-rose-50 rounded-xl font-bold">Xóa</button><button onClick={saveGridCell} className="px-6 py-2 bg-indigo-600 text-white rounded-xl font-bold">Lưu</button></div></div></div>)}
+                     {showExamModal && (<div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"><div className="bg-white rounded-2xl w-full max-w-sm p-6 shadow-2xl"><h3 className="font-extrabold text-xl mb-4 text-rose-600">Thêm lịch thi</h3><div className="mb-3"><label className="text-xs font-bold text-slate-400 ml-1 mb-1 block">Tên môn thi</label><input className="w-full bg-slate-50 border border-slate-200 p-3 rounded-xl text-sm focus:border-rose-500 outline-none font-bold" placeholder="Nhập tên môn..." value={newExam.subject} onChange={e => setNewExam({...newExam, subject: e.target.value})} /></div><div className="flex gap-3 mb-3"><input type="date" className="bg-slate-50 border border-slate-200 p-3 rounded-xl text-sm flex-1 outline-none font-medium" value={newExam.date} onChange={e => setNewExam({...newExam, date: e.target.value})} /><input type="time" className="bg-slate-50 border border-slate-200 p-3 rounded-xl text-sm w-28 outline-none font-medium" value={newExam.time} onChange={e => setNewExam({...newExam, time: e.target.value})} /></div><div className="flex gap-3 mb-6"><input className="bg-slate-50 border border-slate-200 p-3 rounded-xl text-sm flex-1 outline-none font-medium" placeholder="Phòng thi" value={newExam.room} onChange={e => setNewExam({...newExam, room: e.target.value})} /><select className="bg-slate-50 border border-slate-200 p-3 rounded-xl text-sm outline-none font-medium" value={newExam.format} onChange={e => setNewExam({...newExam, format: e.target.value})}><option value="Vấn đáp">Vấn đáp</option><option value="Tự luận">Tự luận</option><option value="Trắc nghiệm">Trắc nghiệm</option></select></div><div className="flex justify-end gap-3"><button onClick={() => setShowExamModal(false)} className="px-5 py-2.5 text-slate-500 font-bold hover:bg-slate-50 rounded-xl">Hủy</button><button onClick={addExam} className="px-5 py-2.5 bg-rose-600 text-white rounded-xl font-bold">Lưu lịch</button></div></div></div>)}
+                </div>
+            )
+        }
+
+        const SubjectDetail = ({ subject, onBack, onUpdate, isReadOnly, showLinks = true }) => {
+    const [activeTab, setActiveTab] = useState('flashcards');
+    const [showModal, setShowModal] = useState(false);
+    const [showBulkModal, setShowBulkModal] = useState(false);
+    const [isFullScreen, setIsFullScreen] = useState(false);
+
+    const [editingId, setEditingId] = useState(null);
+    const [inputData, setInputData] = useState({ title: '', content: '', link: '', group: '' });
+    const [bulkText, setBulkText] = useState('');
+
+    const [collapsedGroups, setCollapsedGroups] = useState([]);
+    const [searchTerm, setSearchTerm] = useState('');
+    const [flippedCards, setFlippedCards] = useState([]);
+    const [showGroupSuggestions, setShowGroupSuggestions] = useState(false);
+    const [viewingDoc, setViewingDoc] = useState(null);
+
+    // QUAN TRỌNG: Bỏ .sort() để tôn trọng thứ tự trong mảng
+    const existingGroups = useMemo(() => {
+        const list = (subject.materials || []).map(i => i.group || 'Chung');
+        // Sử dụng Set để lấy unique, thứ tự của Set dựa trên insertion order (thứ tự xuất hiện trong mảng)
+        return [...new Set(list)]; 
+    }, [subject]);
+
+    const filteredGroupSuggestions = existingGroups.filter(g => 
+        g.toLowerCase().includes((inputData.group || '').toLowerCase())
+    );
+
+    const RenderMath = ({ text }) => {
+        if (!text) return null;
+        const parts = text.split(/(\$[^\$]+\$)/g);
+        return (
+            <span className="leading-loose">
+                {parts.map((part, index) => {
+                    if (part.startsWith('$') && part.endsWith('$')) {
+                        const math = part.slice(1, -1);
+                        try {
+                            if (window.katex) {
+                                const html = window.katex.renderToString(math, { throwOnError: false });
+                                return <span key={index} dangerouslySetInnerHTML={{__html: html}} className="text-blue-700 font-bold bg-blue-50 px-1.5 py-0.5 rounded border border-blue-100 font-serif mx-0.5 inline-block" />;
+                            }
+                        } catch (e) { return <span key={index} className="text-red-500 font-bold bg-red-50 px-1 rounded">{part}</span>; }
+                    }
+                    return <span key={index}>{part}</span>;
+                })}
+            </span>
+        );
+    };
+
+    // --- LOGIC DI CHUYỂN ITEM CON (BÀI TRONG CHƯƠNG) ---
+    const moveItem = (e, item, direction) => {
+        e.stopPropagation();
+        if (isReadOnly || searchTerm) return;
+
+        const currentList = [...(subject[activeTab] || [])];
+        const index = currentList.findIndex(i => i.id === item.id);
+        
+        if (index === -1) return;
+        const newIndex = index + direction;
+
+        if (newIndex < 0 || newIndex >= currentList.length) return;
+
+        // Nếu đang ở tab materials (có group), ta chỉ cho phép đổi chỗ nếu item kia cũng cùng group
+        // Hoặc cứ cho đổi chỗ tự do trong mảng gốc, logic hiển thị group sẽ tự cập nhật
+        [currentList[index], currentList[newIndex]] = [currentList[newIndex], currentList[index]];
+
+        let updatedSubject = { ...subject };
+        updatedSubject[activeTab] = currentList;
+        onUpdate(updatedSubject);
+    };
+
+    // --- LOGIC DI CHUYỂN NGUYÊN CHƯƠNG (GROUP) ---
+    const moveGroupSection = (e, groupName, direction) => {
+        e.stopPropagation();
+        if (isReadOnly || searchTerm) return;
+
+        // 1. Lấy danh sách các nhóm hiện tại theo thứ tự xuất hiện
+        const groups = [...existingGroups];
+        const index = groups.indexOf(groupName);
+        if (index === -1) return;
+        
+        const newIndex = index + direction;
+        if (newIndex < 0 || newIndex >= groups.length) return;
+
+        // 2. Hoán đổi vị trí tên nhóm trong mảng danh sách nhóm
+        [groups[index], groups[newIndex]] = [groups[newIndex], groups[index]];
+
+        // 3. Tái cấu trúc mảng materials dựa trên thứ tự nhóm mới
+        // Gom tất cả item theo nhóm vào 1 object
+        const allItems = subject.materials || [];
+        const itemsByGroup = allItems.reduce((acc, item) => {
+            const g = item.group || 'Chung';
+            if (!acc[g]) acc[g] = [];
+            acc[g].push(item);
+            return acc;
+        }, {});
+
+        // Tạo mảng mới theo thứ tự groups đã hoán đổi
+        let newMaterials = [];
+        groups.forEach(g => {
+            if (itemsByGroup[g]) newMaterials.push(...itemsByGroup[g]);
+        });
+
+        // Đừng quên các item thuộc nhóm không nằm trong existingGroups (nếu có lỗi data)
+        // Nhưng ở đây ta giả định data chuẩn.
+
+        let updatedSubject = { ...subject };
+        updatedSubject.materials = newMaterials;
+        onUpdate(updatedSubject);
+    };
+
+    const getFilteredItems = () => {
+        const items = subject[activeTab] || [];
+        if (!searchTerm) return items;
+        const lower = searchTerm.toLowerCase();
+        return items.filter(item => 
+            (item.title && item.title.toLowerCase().includes(lower)) ||
+            (item.content && item.content.toLowerCase().includes(lower)) ||
+            (item.group && item.group.toLowerCase().includes(lower))
+        );
+    };
+
+    const startEditing = (e, item) => {
+        e.stopPropagation();
+        setEditingId(item.id);
+        setInputData({ title: item.title || '', content: item.content || '', link: item.link || '', group: item.group || '' });
+        setShowModal(true);
+    };
+
+    const startAdding = () => {
+        setEditingId(null);
+        setInputData({ title: '', content: '', link: '', group: '' });
+        setShowModal(true);
+    };
+
+    const handleBulkImport = () => {
+        if (!bulkText.trim()) return alert("Chưa nhập nội dung!");
+        
+        const lines = bulkText.split('\n').filter(line => line.trim() !== '');
+        const newItems = lines.map(line => {
+            const parts = line.split('|');
+            const title = parts[0]?.trim() || 'No title';
+            const contentOrLink = parts[1]?.trim() || '';
+            const group = parts[2]?.trim() || 'Chung';
+
+            if (activeTab === 'flashcards') {
+                return { id: Date.now() + Math.random(), title: title, content: contentOrLink, date: new Date().toLocaleDateString('vi-VN') };
+            } else {
+                return { id: Date.now() + Math.random(), title: title, link: contentOrLink, group: group, date: new Date().toLocaleDateString('vi-VN') };
+            }
+        });
+
+        if (newItems.length === 0) return alert("Không tìm thấy dữ liệu hợp lệ!");
+
+        if (confirm(`Tìm thấy ${newItems.length} mục. Bạn có chắc muốn thêm vào không?`)) {
+            let updatedSubject = { ...subject };
+            if (!updatedSubject[activeTab]) updatedSubject[activeTab] = [];
+            updatedSubject[activeTab] = [...updatedSubject[activeTab], ...newItems];
+            onUpdate(updatedSubject);
+            setShowBulkModal(false);
+            setBulkText('');
+        }
+    };
+
+    const handleSave = () => {
+        if (isReadOnly) return;
+        if (!inputData.title) return alert(activeTab === 'flashcards' ? "Vui lòng nhập câu hỏi!" : "Vui lòng nhập tiêu đề!");
+        const finalGroup = inputData.group ? inputData.group.trim() : 'Chung'; 
+        let updatedSubject = { ...subject };
+        let currentList = updatedSubject[activeTab] || [];
+
+        if (editingId) {
+            updatedSubject[activeTab] = currentList.map(item => item.id === editingId ? { ...item, ...inputData, group: finalGroup } : item);
+        } else {
+            const newItem = { id: Date.now(), ...inputData, group: finalGroup, date: new Date().toLocaleDateString('vi-VN') };
+            updatedSubject[activeTab] = [...currentList, newItem];
+        }
+        onUpdate(updatedSubject); setShowModal(false); setInputData({ title: '', content: '', link: '', group: '' }); setEditingId(null);
+    };
+
+    const deleteItem = (e, id) => {
+        e.stopPropagation();
+        if (isReadOnly) return;
+        if (!confirm("Bạn có chắc muốn xóa mục này không?")) return;
+        let updatedSubject = { ...subject };
+        updatedSubject[activeTab] = updatedSubject[activeTab].filter(i => i.id !== id);
+        onUpdate(updatedSubject);
+    };
+
+    const toggleGroup = (groupName) => setCollapsedGroups(prev => prev.includes(groupName) ? prev.filter(g => g !== groupName) : [...prev, groupName]);
+    const toggleFlip = (id) => setFlippedCards(prev => prev.includes(id) ? prev.filter(cardId => cardId !== id) : [...prev, id]);
+
+    const renderContent = () => {
+        const items = getFilteredItems();
+        
+        if (items.length === 0) return (
+            <div className="flex flex-col items-center justify-center py-24 text-slate-400 border-2 border-dashed border-slate-200 rounded-3xl mx-6 bg-slate-50/50">
+                <div className="w-16 h-16 bg-white rounded-full shadow-sm flex items-center justify-center mb-3"><I n={activeTab === 'flashcards' ? 'atom' : 'list'} size={24} className="opacity-30"/></div>
+                <span className="font-medium">Chưa có dữ liệu nào. Bấm "Thêm mới" để tạo.</span>
+            </div>
+        );
+
+        if (activeTab === 'flashcards') {
+            return (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5 px-6 pb-32 animate-in fade-in slide-in-from-bottom-2">
+                    {items.map((item) => {
+                        const isFlipped = flippedCards.includes(item.id);
+                        return (
+                            <div key={item.id} onClick={() => toggleFlip(item.id)} className="group cursor-pointer perspective-1000 h-64 relative">
+                                <div className={`relative w-full h-full transition-all duration-500 transform-style-3d shadow-sm hover:shadow-xl rounded-2xl border border-slate-200 ${isFlipped ? 'rotate-y-180' : ''}`}>
+                                    <div className="absolute inset-0 backface-hidden bg-white p-6 rounded-2xl flex flex-col justify-between">
+                                        <div className="flex justify-between items-start">
+                                            <span className="text-[10px] font-bold text-indigo-500 bg-indigo-50 px-2 py-1 rounded-md uppercase tracking-wider">Câu hỏi</span>
+                                            {!isReadOnly && !searchTerm && (
+                                                <div className="flex gap-1 z-10" onClick={e => e.stopPropagation()}>
+                                                    <button onClick={(e) => moveItem(e, item, -1)} className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-300 hover:text-indigo-600 hover:bg-indigo-50 transition-all" title="Lên"><I n="down" className="rotate-180" size={16}/></button>
+                                                    <button onClick={(e) => moveItem(e, item, 1)} className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-300 hover:text-indigo-600 hover:bg-indigo-50 transition-all" title="Xuống"><I n="down" size={16}/></button>
+                                                </div>
+                                            )}
+                                        </div>
+                                        <div className="flex-1 flex items-center justify-center text-center px-2 overflow-hidden"><h3 className="font-bold text-slate-800 text-lg leading-snug break-words w-full"><RenderMath text={item.title}/></h3></div>
+                                        <div className="flex justify-between items-center mt-2">
+                                            <div className="text-xs text-slate-400 font-medium">Bấm để xem đáp án</div>
+                                            {!isReadOnly && (
+                                                <div className="flex gap-2" onClick={e => e.stopPropagation()}>
+                                                    <button onClick={(e) => startEditing(e, item)} className="text-slate-300 hover:text-indigo-500 transition-colors p-1"><I n="edit" size={16}/></button>
+                                                    <button onClick={(e) => deleteItem(e, item.id)} className="text-slate-300 hover:text-red-500 transition-colors p-1"><I n="trash" size={16}/></button>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                    <div className="absolute inset-0 backface-hidden rotate-y-180 bg-slate-800 p-6 rounded-2xl flex flex-col justify-between text-white">
+                                        <div className="flex justify-between items-start"><span className="text-[10px] font-bold text-white/80 bg-white/20 px-2 py-1 rounded-md uppercase tracking-wider">Đáp án</span></div>
+                                        <div className="flex-1 flex items-center justify-center text-center overflow-y-auto custom-scrollbar px-2 w-full"><div className="text-lg font-medium leading-relaxed whitespace-pre-wrap break-words w-full">{item.content && item.content.split(/(\$[^\$]+\$)/g).map((part, idx) => { if (part.startsWith('$') && part.endsWith('$')) { const math = part.slice(1, -1); try { const html = window.katex.renderToString(math, { throwOnError: false }); return <span key={idx} dangerouslySetInnerHTML={{__html: html}} className="text-emerald-300 font-bold bg-white/10 px-1 rounded mx-0.5 inline-block" />; } catch(e) { return part; } } return part; })}</div></div>
+                                        <div className="text-center text-xs text-slate-400 font-medium mt-2">Bấm để quay lại</div>
+                                    </div>
+                                </div>
+                            </div>
+                        );
+                    })}
+                </div>
+            );
+        }
+
+        // --- RENDER TÀI LIỆU (MATERIALS) ---
+        // Sử dụng existingGroups để đảm bảo thứ tự render theo mảng gốc (sau khi đã move)
+        const grouped = items.reduce((acc, item) => { const g = item.group || 'Chung'; if (!acc[g]) acc[g] = []; acc[g].push(item); return acc; }, {});
+
+        return (
+            <div className="px-4 md:px-6 pb-32 space-y-6 animate-in fade-in slide-in-from-bottom-4">
+                {/* Duyệt qua existingGroups thay vì Object.entries để giữ thứ tự */}
+                {existingGroups.map((gName) => {
+                    const gItems = grouped[gName];
+                    if (!gItems) return null; // Trường hợp lọc search
+                    const isCollapsed = collapsedGroups.includes(gName);
+                    
+                    return (
+                        <div key={gName} className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+                            <button onClick={() => toggleGroup(gName)} className="w-full flex items-center justify-between p-4 bg-slate-50/50 hover:bg-slate-50 transition-colors group/header">
+                                <div className="flex items-center gap-3">
+                                    <div className={`w-7 h-7 rounded-lg flex items-center justify-center text-indigo-600 bg-indigo-50 border border-indigo-100 transition-transform ${isCollapsed ? '-rotate-90' : ''}`}><I n="down" size={14}/></div>
+                                    <h3 className="text-sm md:text-base font-extrabold text-slate-800">{gName}</h3>
+                                    
+                                    {/* NÚT DI CHUYỂN CHƯƠNG (GROUP) */}
+                                    {!isReadOnly && !searchTerm && (
+                                        <div className="flex gap-1 ml-2 opacity-0 group-hover/header:opacity-100 transition-opacity" onClick={e => e.stopPropagation()}>
+                                            <div onClick={(e) => moveGroupSection(e, gName, -1)} className="p-1 hover:bg-indigo-100 rounded cursor-pointer text-slate-400 hover:text-indigo-600" title="Lên"><I n="down" className="rotate-180" size={14}/></div>
+                                            <div onClick={(e) => moveGroupSection(e, gName, 1)} className="p-1 hover:bg-indigo-100 rounded cursor-pointer text-slate-400 hover:text-indigo-600" title="Xuống"><I n="down" size={14}/></div>
+                                        </div>
+                                    )}
+                                </div>
+                                <span className="text-[10px] font-bold text-slate-500 bg-white px-2 py-1 rounded-full border border-slate-200 shadow-sm">{gItems.length}</span>
+                            </button>
+                            {!isCollapsed && (
+                                <div className="p-2 space-y-2 bg-white">
+                                    {gItems.map(item => (
+                                        <div key={item.id} className="group flex flex-col md:flex-row md:items-center gap-3 p-3 rounded-xl hover:bg-slate-50 border border-transparent hover:border-slate-100 transition-all">
+                                            <div className="flex items-start gap-3 flex-1 min-w-0">
+                                                <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 shadow-sm mt-1 md:mt-0 ${item.link ? 'bg-gradient-to-br from-blue-500 to-indigo-600 text-white' : 'bg-slate-100 text-slate-400'}`}>
+                                                    <I n={item.link ? 'vid' : 'list'} size={18}/>
+                                                </div>
+                                                <div className="min-w-0 flex-1">
+                                                    <h4 className="font-bold text-slate-700 text-sm break-words leading-snug" title={item.title}><RenderMath text={item.title}/></h4>
+                                                    <div className="flex items-center gap-3 mt-1.5">
+                                                        <span className="text-[10px] font-bold text-slate-400 flex items-center gap-1"><I n="clock" size={10}/> {item.date}</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div className="flex items-center justify-end gap-2 pl-12 md:pl-0">
+                                                {/* NÚT DI CHUYỂN BÀI LẺ */}
+                                                {!isReadOnly && !searchTerm && (
+                                                    <div className="flex flex-col md:flex-row gap-1 mr-2 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-all">
+                                                        <button onClick={(e) => moveItem(e, item, -1)} className="w-6 h-6 flex items-center justify-center rounded text-slate-300 hover:text-indigo-600 hover:bg-indigo-50" title="Lên"><I n="down" className="rotate-180" size={14}/></button>
+                                                        <button onClick={(e) => moveItem(e, item, 1)} className="w-6 h-6 flex items-center justify-center rounded text-slate-300 hover:text-indigo-600 hover:bg-indigo-50" title="Xuống"><I n="down" size={14}/></button>
+                                                    </div>
+                                                )}
+
+                                                {showLinks && item.link ? (
+                                                    <button onClick={() => setViewingDoc(item.link)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-50 text-indigo-600 text-[10px] md:text-xs font-bold hover:bg-indigo-600 hover:text-white transition-all shadow-sm">
+                                                        <span className="md:inline">Mở</span> <I n="right" size={10}/>
+                                                    </button>
+                                                ) : <span className="text-[10px] font-bold text-slate-300 px-2 cursor-not-allowed">No link</span>}
+                                                {!isReadOnly && (
+                                                    <div className="flex gap-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-all">
+                                                        <button onClick={(e) => startEditing(e, item)} className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:text-indigo-500 hover:bg-indigo-50 transition-all"><I n="edit" size={16}/></button>
+                                                        <button onClick={(e) => deleteItem(e, item.id)} className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 transition-all"><I n="trash" size={16}/></button>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    );
+                })}
+            </div>
+        );
+    };
+
+    return (
+        <div className="fixed inset-0 bg-[#F8FAFC] z-[60] flex flex-col animate-in slide-in-from-right duration-300">
+            <div className="px-4 md:px-6 py-4 bg-white border-b border-slate-100 flex items-center gap-3 md:gap-4 sticky top-0 z-20 shadow-sm">
+                <button onClick={onBack} className="w-8 h-8 md:w-9 md:h-9 flex items-center justify-center rounded-full hover:bg-slate-100 transition-colors text-slate-500 border border-transparent hover:border-slate-200"><I n="left" size={20}/></button>
+                <div className="flex-1 min-w-0"><h2 className="text-lg md:text-xl font-bold text-slate-900 truncate leading-tight">{subject.name}</h2><p className="text-xs text-slate-400 font-medium tracking-wide mt-0.5">{subject.code}</p></div>
+                <div className="relative w-64 hidden md:block"><input className="w-full bg-slate-50 border-none rounded-xl pl-10 pr-4 py-2.5 text-sm font-medium text-slate-600 placeholder:text-slate-400 focus:ring-2 focus:ring-indigo-100 transition-all" placeholder="Tìm kiếm nội dung..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} /><I n="list" className="absolute left-3.5 top-3 text-slate-400" size={16}/></div>
+            </div>
+
+            <div className="px-4 md:px-6 pt-4 md:pt-6 pb-2">
+                <div className="inline-flex bg-white p-1 rounded-xl border border-slate-200 shadow-sm w-full md:w-auto">
+                    {[{id: 'flashcards', l: 'Flashcards'}, {id: 'materials', l: 'Tài liệu'}].map(t => (<button key={t.id} onClick={() => setActiveTab(t.id)} className={`flex-1 md:flex-none px-4 md:px-6 py-2 rounded-lg text-xs md:text-sm font-bold transition-all duration-300 ${activeTab === t.id ? 'bg-slate-900 text-white shadow-md' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-50'}`}>{t.l}</button>))}
+                </div>
+            </div>
+
+            <div className="flex-1 overflow-y-auto custom-scrollbar">{renderContent()}</div>
+
+            {!isReadOnly && (
+                <div className="absolute bottom-6 right-6 md:bottom-8 md:right-8 z-30 flex flex-col gap-3">
+                    <button onClick={() => setShowBulkModal(true)} className="group flex items-center justify-center w-14 h-14 bg-white text-indigo-600 rounded-full shadow-lg shadow-indigo-100 border border-indigo-50 hover:scale-110 transition-all" title="Nhập hàng loạt">
+                        <I n="list" size={24}/>
+                    </button>
+                    <button onClick={startAdding} className="group flex items-center gap-2 bg-slate-900 text-white pl-4 pr-6 py-3.5 rounded-full shadow-xl shadow-slate-300 hover:bg-black hover:scale-105 transition-all duration-300">
+                        <div className="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center group-hover:rotate-90 transition-transform"><I n="plus" size={16}/></div>
+                        <span className="font-bold text-sm">Thêm mới</span>
+                    </button>
+                </div>
+            )}
+
+            {showBulkModal && (
+                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                    <div className="bg-white rounded-3xl w-full max-w-2xl p-0 shadow-2xl animate-in zoom-in-95 duration-200 overflow-hidden flex flex-col max-h-[90vh]">
+                        <div className="px-6 py-5 border-b border-slate-50 flex justify-between items-center bg-indigo-50/50">
+                            <h3 className="font-bold text-lg text-indigo-900">⚡ Nhập nhanh (Bulk Import)</h3>
+                            <button onClick={() => setShowBulkModal(false)} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-white hover:shadow-sm text-slate-400 transition-all"><I n="x" size={18}/></button>
+                        </div>
+                        <div className="p-6 flex-1 flex flex-col">
+                            <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 mb-4 text-xs text-slate-600 leading-relaxed">
+                                <b>Hướng dẫn:</b> Nhập mỗi mục trên một dòng. Phân cách bằng dấu gạch đứng <code>|</code>.<br/>
+                                - Flashcard: <code>Câu hỏi | Đáp án</code><br/>
+                                - Tài liệu: <code>Tên tài liệu | Link | Nhóm (Tùy chọn)</code>
+                            </div>
+                            <textarea 
+                                autoFocus 
+                                className="w-full flex-1 bg-slate-50 border border-slate-200 rounded-xl p-4 text-sm font-mono focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 outline-none resize-none" 
+                                placeholder={`Ví dụ:\nĐịnh luật II Newton | F=ma\nGia tốc trọng trường | g = 9.8 m/s^2\n...`}
+                                value={bulkText}
+                                onChange={e => setBulkText(e.target.value)}
+                            ></textarea>
+                            <div className="pt-4 flex justify-end gap-3">
+                                <button onClick={() => setShowBulkModal(false)} className="px-6 py-3 rounded-xl font-bold text-slate-500 hover:bg-slate-100">Hủy</button>
+                                <button onClick={handleBulkImport} className="px-6 py-3 bg-indigo-600 text-white rounded-xl font-bold shadow-lg shadow-indigo-200 hover:bg-indigo-700">Xử lý & Thêm</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {showModal && (
+                <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                    <div className="bg-white rounded-3xl w-full max-w-lg p-0 shadow-2xl animate-in zoom-in-95 duration-200 overflow-hidden flex flex-col max-h-[90vh]">
+                        <div className="px-6 py-5 border-b border-slate-50 flex justify-between items-center bg-slate-50/50">
+                            <h3 className="font-bold text-lg text-slate-800">{editingId ? 'Chỉnh sửa' : (activeTab === 'flashcards' ? 'Tạo Flashcard' : 'Thêm Tài liệu')}</h3>
+                            <button onClick={() => setShowModal(false)} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-white hover:shadow-sm text-slate-400 transition-all"><I n="x" size={18}/></button>
+                        </div>
+                        <div className="p-6 space-y-4 overflow-y-auto custom-scrollbar">
+                            {activeTab === 'flashcards' && (<div className="bg-indigo-50 p-3 rounded-xl border border-indigo-100 text-xs text-indigo-800">💡 <b>Mẹo Toán học:</b> Kẹp công thức giữa dấu $. VD: <code>{'$x^2$'}</code></div>)}
+
+                            {activeTab === 'materials' && (
+                                <div className="space-y-1.5 relative">
+                                    <label className="text-xs font-bold text-slate-400 ml-1 uppercase">Nhóm / Chương</label>
+                                    <input className="w-full bg-slate-50 border border-transparent focus:border-blue-500 rounded-xl px-4 py-3 text-sm font-medium outline-none" placeholder="Chọn hoặc nhập mới..." value={inputData.group} onChange={e => setInputData({...inputData, group: e.target.value})} onFocus={() => setShowGroupSuggestions(true)} onBlur={() => setTimeout(() => setShowGroupSuggestions(false), 200)}/>
+                                    {showGroupSuggestions && existingGroups.length > 0 && (
+                                        <div className="absolute top-full left-0 right-0 mt-1 bg-white rounded-xl shadow-xl border border-slate-100 max-h-40 overflow-y-auto z-50 animate-in fade-in zoom-in-95">
+                                            {filteredGroupSuggestions.map(g => (<div key={g} onClick={() => setInputData({...inputData, group: g})} className="px-4 py-3 text-sm font-bold text-slate-700 hover:bg-indigo-50 cursor-pointer">{g}</div>))}
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+
+                            <div className="space-y-1.5"><label className="text-xs font-bold text-slate-400 ml-1 uppercase">{activeTab === 'flashcards' ? 'Câu hỏi' : 'Tiêu đề'}</label><input autoFocus className="w-full bg-slate-50 border border-transparent focus:border-indigo-500 rounded-xl px-4 py-3 text-sm font-bold text-slate-800 outline-none" value={inputData.title} onChange={e => setInputData({...inputData, title: e.target.value})} /></div>
+                            {activeTab === 'flashcards' && (<div className="space-y-1.5"><label className="text-xs font-bold text-slate-400 ml-1 uppercase">Đáp án</label><textarea rows="4" className="w-full bg-slate-50 border border-transparent focus:border-indigo-500 rounded-xl px-4 py-3 text-sm font-medium text-slate-600 outline-none resize-none" value={inputData.content} onChange={e => setInputData({...inputData, content: e.target.value})}></textarea></div>)}
+                            {activeTab === 'materials' && showLinks && (<div className="space-y-1.5"><label className="text-xs font-bold text-slate-400 ml-1 uppercase">Link</label><div className="relative"><input className="w-full bg-slate-50 border border-transparent focus:border-blue-500 rounded-xl pl-10 pr-4 py-3 text-sm font-medium text-blue-600 outline-none" placeholder="https://..." value={inputData.link} onChange={e => setInputData({...inputData, link: e.target.value})} /><I n="vid" className="absolute left-3.5 top-3.5 text-slate-400" size={18}/></div></div>)}
+                            
+                            <div className="pt-2"><button onClick={handleSave} className="w-full py-3.5 bg-slate-900 text-white rounded-xl font-bold hover:bg-black shadow-lg transform active:scale-[0.98]">{editingId ? 'Lưu thay đổi' : 'Xác nhận thêm'}</button></div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {viewingDoc && (
+                // --- CONTAINER CHÍNH: z-[70] để cao nhất ---
+                <div className="fixed inset-0 z-[70] bg-slate-900 flex flex-col animate-in slide-in-from-bottom-4 duration-300">
+                    
+                    {/* --- NÚT ĐÓNG (FLOATING BUTTON) --- */}
+                    {/* Dùng absolute để nó nổi lên trên nội dung, bỏ hoàn toàn thanh ngang */}
+                    <button 
+                        onClick={() => setViewingDoc(null)} 
+                        className="absolute top-6 right-6 z-[80] w-10 h-10 flex items-center justify-center bg-slate-900/80 backdrop-blur-sm text-white rounded-full hover:bg-rose-600 transition-all shadow-lg border border-white/20"
+                        title="Đóng"
+                    >
+                        <I n="x" size={20}/>
+                    </button>
+
+                    {/* --- KHUNG HIỂN THỊ NỘI DUNG (FULL SCREEN) --- */}
+                    {/* Bỏ rounded-t để full màn hình đẹp hơn */}
+                    <div className="flex-1 w-full h-full relative bg-white overflow-hidden">
+                        
+                        {/* Loading Spinner */}
+                        <div className="absolute inset-0 flex items-center justify-center z-0 bg-slate-50">
+                            <div className="flex flex-col items-center gap-3">
+                                <div className="w-8 h-8 border-2 border-slate-200 border-t-indigo-600 rounded-full animate-spin"></div>
+                                <div className="text-xs font-bold text-slate-400">Đang tải tài liệu...</div>
+                            </div>
+                        </div>
+
+                        {(() => {
+                            const officeExtensions = ['.pdf', '.doc', '.docx', '.ppt', '.pptx', '.xls', '.xlsx'];
+                            const isOfficeFile = officeExtensions.some(ext => viewingDoc.toLowerCase().endsWith(ext));
+                            
+                            const src = isOfficeFile 
+                                ? `https://docs.google.com/gview?url=${encodeURIComponent(viewingDoc)}&embedded=true`
+                                : viewingDoc;
+
+                            return (
+                                <iframe 
+                                    src={src} 
+                                    className="absolute inset-0 w-full h-full border-0 z-10 bg-white" 
+                                    title="Document Viewer"
+                                    sandbox="allow-forms allow-scripts allow-same-origin allow-popups"
+                                ></iframe>
+                            );
+                        })()}
+                    </div>
+                </div>
+            )}
+            <style>{`.perspective-1000 { perspective: 1000px; } .transform-style-3d { transform-style: preserve-3d; } .backface-hidden { backface-visibility: hidden; } .rotate-y-180 { transform: rotateY(180deg); }`}</style>
+        </div>
+    );
+};
+
+        const LecturesView = ({ subjects, updateSubjects, isReadOnly }) => {
+            const [selectedSubject, setSelectedSubject] = useState(null);
+            const [showAddModal, setShowAddModal] = useState(false);
+            const [searchTerm, setSearchTerm] = useState('');
+
+            const allCourses = useMemo(() => {
+                let list = [];
+                if(typeof DATA_VAT_LY !== 'undefined') DATA_VAT_LY.forEach(sec => list.push(...sec.courses));
+                return list;
+            }, []);
+
+            const filteredCourses = allCourses.filter(c => c.name.toLowerCase().includes(searchTerm.toLowerCase()) || c.code.toLowerCase().includes(searchTerm.toLowerCase()));
+            
+            const handleSelectCourse = (course) => {
+                if (isReadOnly) return;
+                if (subjects.find(s => s.code === course.code)) return alert("Môn này đã có!");
+                updateSubjects([...subjects, { id: Date.now(), name: course.name, code: course.code, flashcards: [], materials: [], isPinned: false }]);
+                setShowAddModal(false); setSearchTerm('');
+            };
+
+            const togglePin = (e, id) => { e.stopPropagation(); if (isReadOnly) return; updateSubjects(subjects.map(s => s.id === id ? { ...s, isPinned: !s.isPinned } : s)); };
+            const handleDeleteSubject = (e, id) => { e.stopPropagation(); if (isReadOnly) return; if (confirm('Xóa môn này?')) updateSubjects(subjects.filter(s => s.id !== id)); };
+            const sortedSubjects = [...subjects].sort((a, b) => (a.isPinned === b.isPinned ? 0 : a.isPinned ? -1 : 1));
+
+            if (selectedSubject) return <SubjectDetail 
+                subject={selectedSubject} 
+                onBack={() => setSelectedSubject(null)} 
+                isReadOnly={isReadOnly}
+                showLinks={true}
+                onUpdate={(updated) => { 
+                    if (isReadOnly) return;
+                    updateSubjects(subjects.map(s => s.id === updated.id ? updated : s));
+                    setSelectedSubject(updated); 
+                }} 
+            />;
+
+            return (
+                <div className="p-4 md:p-8 max-w-7xl mx-auto font-sans pb-32">
+                    <div className="flex flex-col md:flex-row justify-between items-center mb-8 gap-6">
+                        <div><h1 className="text-3xl font-extrabold text-slate-800 tracking-tight mb-1">Thư viện bài giảng</h1><p className="text-slate-500 text-sm font-medium">Lưu trữ tài liệu và ôn tập Flashcards</p></div>
+                        <div className="flex items-center gap-2 bg-white px-4 py-2 rounded-full border border-slate-200 shadow-sm"><span className="font-bold text-slate-700">{subjects.length}</span><span className="text-slate-400 text-sm">môn học</span></div>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                        {sortedSubjects.map(sub => (
+                            <div key={sub.id} onClick={() => setSelectedSubject(sub)} className={`bg-white p-6 rounded-3xl border transition-all cursor-pointer group relative flex flex-col justify-between h-48 hover:-translate-y-1 hover:shadow-xl ${sub.isPinned ? 'border-amber-200 shadow-lg shadow-amber-50' : 'border-slate-100 shadow-sm hover:border-indigo-100'}`}>
+                                <div>
+                                    <div className="flex justify-between items-start mb-3"><span className={`text-[10px] font-mono font-bold px-2 py-1 rounded-lg uppercase tracking-wide ${sub.isPinned ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-500'}`}>{sub.code}</span>{!isReadOnly && (<button onClick={(e) => togglePin(e, sub.id)} className={`p-1.5 rounded-full transition-all ${sub.isPinned ? 'text-amber-400 bg-amber-50' : 'text-slate-200 hover:text-amber-400 hover:bg-slate-50'}`}><I n="grad" size={20}/></button>)}</div>
+                                    <h3 className="font-bold text-slate-800 text-lg leading-tight line-clamp-2 mb-2 group-hover:text-indigo-600 transition-colors">{sub.name}</h3>
+                                </div>
+                                <div className="flex items-center gap-3 text-xs font-medium text-slate-400 pt-4 border-t border-slate-50">
+                                    <span className="flex items-center gap-1"><I n="atom" size={14}/> {sub.flashcards?.length || 0} thẻ</span>
+                                    <span className="flex items-center gap-1"><I n="list" size={14}/> {sub.materials?.length || 0} doc</span>
+                                    {!isReadOnly && (<button onClick={(e) => handleDeleteSubject(e, sub.id)} className="ml-auto p-1.5 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-full opacity-0 group-hover:opacity-100 transition-all"><I n="trash" size={16}/></button>)}
+                                </div>
+                            </div>
+                        ))}
+                        {!isReadOnly && (<button onClick={() => setShowAddModal(true)} className="h-48 border-2 border-dashed border-slate-200 rounded-3xl flex flex-col items-center justify-center text-slate-400 hover:border-indigo-400 hover:text-indigo-600 hover:bg-indigo-50/50 transition-all gap-2 group"><div className="w-12 h-12 rounded-full bg-slate-50 flex items-center justify-center group-hover:bg-white group-hover:shadow-md transition-all"><I n="plus" size={24}/></div><span className="font-bold text-sm">Thêm môn học</span></button>)}
+                    </div>
+                    {showAddModal && (
+                        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                            <div className="bg-white rounded-[24px] w-full max-w-md p-6 shadow-2xl animate-in zoom-in-95 duration-200 flex flex-col max-h-[80vh]">
+                                <div className="flex justify-between items-center mb-4"><h3 className="font-extrabold text-xl text-slate-800">Chọn môn học</h3><button onClick={() => setShowAddModal(false)} className="p-2 hover:bg-slate-100 rounded-full text-slate-500"><I n="x"/></button></div>
+                                <div className="relative mb-4"><I n="list" className="absolute left-4 top-3.5 text-slate-400" size={18}/><input autoFocus className="w-full bg-slate-50 border border-slate-200 pl-11 pr-4 py-3 rounded-2xl text-sm focus:border-indigo-500 outline-none font-medium" placeholder="Nhập tên hoặc mã môn..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)}/></div>
+                                <div className="flex-1 overflow-y-auto space-y-2 pr-1 custom-scrollbar">{filteredCourses.map(c => (<button key={c.code} onClick={() => handleSelectCourse(c)} className="w-full text-left p-4 rounded-2xl hover:bg-indigo-50 border border-transparent hover:border-indigo-100 transition-all group"><div className="flex justify-between"><div className="font-bold text-slate-700 text-sm group-hover:text-indigo-700">{c.name}</div><div className="text-[10px] font-mono bg-slate-100 text-slate-500 px-2 py-0.5 rounded group-hover:bg-white">{c.code}</div></div><div className="text-xs text-slate-400 mt-1">{c.credits} tín chỉ</div></button>))}</div>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
+        const DashboardView = ({ courseData, statusMap, scoreMap, scheduleList, taskList, examSchedule, lectureSubjects, englishTopics, setActiveTab }) => {
+            const [randomCard, setRandomCard] = useState(null);
+            const [showAnswer, setShowAnswer] = useState(false);
+            const [showFilter, setShowFilter] = useState(false);
+            const [sourceList, setSourceList] = useState([]);
+            const [selectedSources, setSelectedSources] = useState([]);
+
+            const stats = useMemo(() => {
+                let studiedCredits = 0, totalScorePoints = 0, gpaCredits = 0;
+                courseData.forEach(s => { 
+                    if (s.id === 'general_excluded') return; 
+                    s.courses.forEach(c => {
+                        if (statusMap[c.code] === 'studied') {
+                            studiedCredits += c.credits;
+                            const sc = scoreMap ? scoreMap[c.code] : undefined;
+                            if (sc !== undefined && !isNaN(sc)) {
+                                totalScorePoints += sc * c.credits;
+                                gpaCredits += c.credits;
+                            }
+                        }
+                    });
+                });
+                const cpa = gpaCredits > 0 ? (totalScorePoints / gpaCredits).toFixed(2) : "0.00";
+                const totalTarget = courseData.reduce((acc, sec) => acc + (sec.id === 'general_excluded' ? 0 : sec.requiredCredits), 0);
+                return { studiedCredits, cpa, totalTarget };
+            }, [statusMap, scoreMap, courseData]);
+
+            const todayClasses = useMemo(() => {
+                const days = ['Chủ nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
+                const currentDay = days[new Date().getDay()];
+                return scheduleList.filter(c => c.day === currentDay).sort((a, b) => a.time.localeCompare(b.time));
+            }, [scheduleList]);
+
+            const priorityTasks = useMemo(() => {
+                const today = new Date();
+                const dateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+                const exams = (examSchedule || []).filter(e => e.date === dateStr).map(e => ({...e, type: 'exam', label: 'Thi hôm nay'}));
+                const dueToday = (taskList || []).filter(t => t.dueDate === dateStr && !t.completed).map(t => ({...t, type: 'task_today', label: 'Hạn hôm nay'}));
+                const highPriority = (taskList || []).filter(t => t.priority === 'high' && !t.completed && t.dueDate !== dateStr).map(t => ({...t, type: 'task_high', label: 'Ưu tiên cao'}));
+                return [...exams, ...dueToday, ...highPriority].slice(0, 3);
+            }, [examSchedule, taskList]);
+
+            useEffect(() => {
+                const allCards = [];
+                const sources = new Set();
+
+                (lectureSubjects || []).forEach(sub => {
+                    if (sub.flashcards && sub.flashcards.length > 0) {
+                        sub.flashcards.forEach(c => allCards.push({...c, source: sub.name}));
+                        sources.add(sub.name);
+                    }
+                });
+                (englishTopics || []).forEach(topic => {
+                    if (topic.flashcards && topic.flashcards.length > 0) {
+                        topic.flashcards.forEach(c => allCards.push({...c, source: topic.name}));
+                        sources.add(topic.name);
+                    }
+                });
+
+                const uniqueSources = Array.from(sources);
+                if (JSON.stringify(uniqueSources) !== JSON.stringify(sourceList)) {
+                    setSourceList(uniqueSources);
+                    if (selectedSources.length === 0) setSelectedSources(uniqueSources);
+                }
+
+                const activeSources = selectedSources.length > 0 ? selectedSources : uniqueSources;
+                const filteredCards = allCards.filter(c => activeSources.includes(c.source));
+
+                if (filteredCards.length > 0) {
+                    const random = filteredCards[Math.floor(Math.random() * filteredCards.length)];
+                    setRandomCard(random);
+                } else {
+                    setRandomCard(null);
+                }
+            }, [lectureSubjects, englishTopics, selectedSources, showFilter]);
+
+            const toggleSource = (src) => {
+                setSelectedSources(prev => prev.includes(src) ? prev.filter(s => s !== src) : [...prev, src]);
+            };
+
+            const RenderMath = ({ text }) => {
+                if (!text) return null;
+                return <span>{text.split(/(\$[^\$]+\$)/g).map((p,i) => {
+                    if (p.startsWith('$') && p.endsWith('$')) {
+                        try { return <span key={i} dangerouslySetInnerHTML={{__html: window.katex.renderToString(p.slice(1,-1), {throwOnError:false})}} className="text-indigo-700 font-bold bg-indigo-50 px-1 rounded mx-1 inline-block"/>; } catch(e) { return p; }
+                    }
+                    return p;
+                })}</span>;
+            };
+
+            return (
+                <div className="pb-24 p-4 md:p-8 max-w-7xl mx-auto font-sans">
+                    <div className="mb-10 bg-gradient-to-r from-slate-900 to-slate-800 rounded-3xl p-8 text-white shadow-xl shadow-slate-200 relative overflow-hidden">
+                        <div className="relative z-10">
+                            <div className="text-indigo-300 font-bold uppercase tracking-widest text-xs mb-2">{new Date().toLocaleDateString('vi-VN', {weekday: 'long', day: 'numeric', month: 'long'})}</div>
+                            <h1 className="text-3xl font-extrabold mb-2">Xin chào! 👋</h1>
+                            <p className="text-slate-400 text-sm max-w-lg">"Học tập không phải là hạt giống, mà là vụ mùa." - Chúc bạn một ngày năng suất.</p>
+                        </div>
+                        <div className="absolute right-0 top-0 w-64 h-64 bg-indigo-500 rounded-full blur-[80px] opacity-20 -mr-16 -mt-16"></div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
+                        <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 flex items-center gap-5 hover:shadow-md transition-shadow">
+                            <div className="w-14 h-14 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center"><I n="grad" size={28}/></div>
+                            <div><div className="text-3xl font-black text-slate-800 tracking-tight">{stats.cpa}</div><div className="text-xs font-bold text-slate-400 uppercase tracking-wide">CPA Tạm tính</div></div>
+                        </div>
+                        <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 flex items-center gap-5 hover:shadow-md transition-shadow">
+                            <div className="w-14 h-14 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center"><I n="book" size={28}/></div>
+                            <div><div className="text-3xl font-black text-slate-800 tracking-tight">{stats.studiedCredits}</div><div className="text-xs font-bold text-slate-400 uppercase tracking-wide">Tín chỉ tích lũy</div></div>
+                        </div>
+                        <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 flex flex-col justify-center hover:shadow-md transition-shadow">
+                            <div className="flex justify-between items-end mb-2"><div className="text-xs font-bold text-slate-400 uppercase">Tiến độ</div><div className="text-xl font-black text-slate-800">{Math.round((stats.studiedCredits/stats.totalTarget)*100) || 0}%</div></div>
+                            <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden"><div className="bg-slate-800 h-full transition-all duration-1000" style={{width: `${(stats.studiedCredits/stats.totalTarget)*100}%`}}></div></div>
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                        <div className="lg:col-span-2 space-y-8">
+                            <div className="bg-white rounded-[32px] p-8 border border-slate-100 shadow-sm">
+                                <h3 className="font-bold text-slate-800 mb-6 flex items-center gap-3 text-lg"><span className="w-2 h-8 rounded-full bg-indigo-500"></span>Lịch trình hôm nay</h3>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    {todayClasses.length > 0 ? todayClasses.map(c => (
+                                        <div key={c.id} className="p-4 bg-slate-50 border border-slate-100 rounded-2xl flex flex-col justify-between hover:bg-white hover:shadow-md transition-all group">
+                                            <div>
+                                                <div className="flex justify-between mb-2">
+                                                    <span className="text-xs font-bold text-indigo-600 bg-indigo-50 px-2 py-1 rounded-lg">{c.time} - {c.endTime}</span>
+                                                    <span className="text-[10px] font-bold text-slate-400 border border-slate-200 px-1.5 py-0.5 rounded">{c.room}</span>
+                                                </div>
+                                                <div className="font-bold text-slate-800">{c.subject}</div>
+                                            </div>
+                                        </div>
+                                    )) : <div className="col-span-full py-8 text-center text-slate-400 italic bg-slate-50/50 rounded-2xl border-2 border-dashed border-slate-100">Hôm nay không có lịch học.</div>}
+                                </div>
+                            </div>
+
+                            <div className="bg-white rounded-[32px] p-8 border border-slate-100 shadow-sm">
+                                <h3 className="font-bold text-slate-800 mb-6 flex items-center gap-3 text-lg"><span className="w-2 h-8 rounded-full bg-rose-500"></span>Cần làm gấp</h3>
+                                <div className="space-y-3">
+                                    {priorityTasks.length > 0 ? priorityTasks.map((t, idx) => (
+                                        <div key={idx} className={`p-4 rounded-2xl border flex items-center gap-4 transition-all hover:translate-x-1 ${t.type === 'exam' ? 'bg-rose-50 border-rose-100' : 'bg-white border-slate-200'}`}>
+                                            <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${t.type === 'exam' ? 'bg-white text-rose-500 shadow-sm' : 'bg-amber-50 text-amber-600'}`}><I n={t.type === 'exam' ? 'clock' : 'check'} size={20}/></div>
+                                            <div className="flex-1 min-w-0">
+                                                <div className="flex items-center gap-2 mb-0.5"><span className={`text-[9px] font-extrabold px-2 py-0.5 rounded uppercase tracking-wide ${t.type === 'exam' ? 'bg-rose-500 text-white' : 'bg-slate-800 text-white'}`}>{t.label}</span>{t.time && <span className="text-xs text-slate-500 font-mono font-bold">{t.time}</span>}</div>
+                                                <div className="font-bold text-slate-800 truncate">{t.subject || t.title}</div>
+                                            </div>
+                                        </div>
+                                    )) : <div className="py-8 text-center text-slate-400 italic bg-slate-50/50 rounded-2xl border-2 border-dashed border-slate-100">Không có nhiệm vụ gấp.</div>}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="bg-slate-900 rounded-[40px] p-8 text-white shadow-2xl shadow-slate-300 relative overflow-hidden flex flex-col min-h-[400px] group">
+                            <div className="absolute top-0 right-0 w-48 h-48 bg-purple-500 rounded-full blur-[100px] opacity-40 group-hover:opacity-60 transition-opacity"></div>
+                            <div className="absolute bottom-0 left-0 w-48 h-48 bg-indigo-500 rounded-full blur-[100px] opacity-40 group-hover:opacity-60 transition-opacity"></div>
+                            
+                            <div className="flex justify-between items-center mb-8 relative z-10">
+                                <h3 className="font-bold flex items-center gap-2"><I n="atom" className="text-purple-400"/> Ôn tập nhanh</h3>
+                                <button onClick={() => setShowFilter(true)} className="w-10 h-10 flex items-center justify-center bg-white/10 hover:bg-white/20 rounded-full transition-all text-white backdrop-blur-sm" title="Chọn môn học"><I n="settings" size={20}/></button>
+                            </div>
+
+                            {randomCard ? (
+                                <div className="flex-1 flex flex-col relative z-10">
+                                    <div className="flex-1 flex items-center justify-center text-center">
+                                        <div className="text-xl font-bold leading-relaxed">
+                                            <RenderMath text={showAnswer ? randomCard.content : randomCard.title} />
+                                        </div>
+                                    </div>
+                                    <div className="pt-8 border-t border-white/10 text-center">
+                                        <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-4">{showAnswer ? "ĐÁP ÁN" : "CÂU HỎI"} • {randomCard.source}</p>
+                                        <button onClick={() => setShowAnswer(!showAnswer)} className="w-full py-4 rounded-2xl bg-white text-slate-900 font-bold hover:scale-105 transition-transform active:scale-95 shadow-lg">
+                                            {showAnswer ? "Xem câu hỏi" : "Xem đáp án"}
+                                        </button>
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="flex-1 flex flex-col items-center justify-center text-slate-500 relative z-10 text-center">
+                                    <I n="book" size={40} className="mb-4 opacity-30"/>
+                                    <span className="text-sm">Chưa có Flashcard nào.<br/>Hoặc bạn đã lọc hết môn học.</span>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
+                    {showFilter && (
+                        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-50 flex items-center justify-center p-4">
+                            <div className="bg-white rounded-3xl w-full max-w-sm p-6 shadow-2xl animate-in zoom-in-95">
+                                <div className="flex justify-between items-center mb-6">
+                                    <h3 className="font-bold text-xl text-slate-800">Nguồn thẻ</h3>
+                                    <button onClick={() => setShowFilter(false)} className="p-2 bg-slate-100 rounded-full text-slate-500 hover:bg-slate-200"><I n="x" size={20}/></button>
+                                </div>
+                                <div className="max-h-[50vh] overflow-y-auto custom-scrollbar space-y-3 mb-6">
+                                    {sourceList.map(src => (
+                                        <div key={src} onClick={() => toggleSource(src)} className={`flex items-center justify-between p-4 rounded-2xl border cursor-pointer transition-all ${selectedSources.includes(src) ? 'bg-indigo-50 border-indigo-500 shadow-sm' : 'bg-white border-slate-100 hover:bg-slate-50'}`}>
+                                            <span className={`text-sm font-bold ${selectedSources.includes(src) ? 'text-indigo-700' : 'text-slate-600'}`}>{src}</span>
+                                            {selectedSources.includes(src) && <div className="w-6 h-6 bg-indigo-500 rounded-full flex items-center justify-center text-white shadow-sm"><I n="check" size={14}/></div>}
+                                        </div>
+                                    ))}
+                                    {sourceList.length === 0 && <div className="text-center text-slate-400 py-4">Chưa có môn nào có Flashcard.</div>}
+                                </div>
+                                <button onClick={() => setShowFilter(false)} className="w-full py-4 rounded-2xl bg-slate-900 text-white font-bold shadow-lg hover:bg-black transition-colors">Hoàn tất</button>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+        };   
+
+        const EnglishView = ({ topics, updateTopics, isReadOnly }) => {
+            const [selectedTopic, setSelectedTopic] = useState(null);
+            const [showModal, setShowModal] = useState(false);
+            const [newTopicName, setNewTopicName] = useState('');
+
+            const getTopicColor = (name) => {
+                const colors = [{ bg: 'bg-orange-100', text: 'text-orange-600' }, { bg: 'bg-blue-100', text: 'text-blue-600' }, { bg: 'bg-emerald-100', text: 'text-emerald-600' }, { bg: 'bg-rose-100', text: 'text-rose-600' }, { bg: 'bg-violet-100', text: 'text-violet-600' }];
+                let hash = 0;
+                for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
+                return colors[Math.abs(hash) % colors.length];
+            };
+
+            const handleAddTopic = () => {
+                if (isReadOnly) return;
+                if (!newTopicName.trim()) return alert("Nhập tên chủ đề!");
+                updateTopics([...topics, { id: Date.now(), name: newTopicName, flashcards: [], materials: [] }]);
+                setNewTopicName(''); setShowModal(false);
+            };
+
+            const handleDeleteTopic = (e, id) => {
+                e.stopPropagation(); if (isReadOnly) return;
+                if (confirm('Xóa chủ đề này?')) updateTopics(topics.filter(t => t.id !== id));
+            };
+
+            if (selectedTopic) return <SubjectDetail 
+                subject={selectedTopic} 
+                onBack={() => setSelectedTopic(null)} 
+                isReadOnly={isReadOnly}
+                showLinks={true} 
+                onUpdate={(updated) => { 
+                    if(isReadOnly) return;
+                    updateTopics(topics.map(t => t.id === updated.id ? updated : t)); 
+                    setSelectedTopic(updated); 
+                }} 
+            />;
+
+            return (
+                <div className="p-4 md:p-8 max-w-7xl mx-auto font-sans pb-32">
+                    <div className="flex flex-col md:flex-row justify-between items-center mb-8 gap-6">
+                        <div><h1 className="text-3xl font-extrabold text-slate-800 tracking-tight mb-1">Tài liệu tiếng anh</h1><p className="text-slate-500 text-sm font-medium">Kho tài liệu và từ vựng (Flashcards)</p></div>
+                        <div className="bg-white px-4 py-2 rounded-full border border-slate-200 shadow-sm flex items-center gap-2"><span className="font-bold text-slate-800 text-lg">{topics.length}</span><span className="text-slate-400 text-sm">chủ đề</span></div>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                        {topics.map(t => {
+                            const color = getTopicColor(t.name);
+                            return (
+                                <div key={t.id} onClick={() => setSelectedTopic(t)} className="bg-white p-6 rounded-3xl border border-slate-100 shadow-[0_4px_20px_rgb(0,0,0,0.03)] hover:shadow-xl hover:-translate-y-1 transition-all cursor-pointer group relative overflow-hidden">
+                                    <div className="flex justify-between items-start mb-4 relative z-10">
+                                        <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-2xl font-bold ${color.bg} ${color.text} shadow-inner`}>{t.name.charAt(0).toUpperCase()}</div>
+                                        {!isReadOnly && (<button onClick={(e) => handleDeleteTopic(e, t.id)} className="p-2 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-full transition-all opacity-0 group-hover:opacity-100"><I n="trash" size={20}/></button>)}
+                                    </div>
+                                    <div className="relative z-10">
+                                        <h3 className="font-bold text-xl text-slate-800 mb-1 group-hover:text-indigo-600 transition-colors line-clamp-1">{t.name}</h3>
+                                        <div className="flex items-center gap-4 text-xs font-medium text-slate-400 mt-3">
+                                            <span className="flex items-center gap-1.5"><I n="atom" size={14}/> {t.flashcards?.length || 0} thẻ</span>
+                                            <span className="flex items-center gap-1.5"><I n="list" size={14}/> {t.materials?.length || 0} doc</span>
+                                        </div>
+                                    </div>
+                                    <div className={`absolute -bottom-6 -right-6 w-24 h-24 rounded-full ${color.bg} opacity-50 group-hover:scale-150 transition-transform duration-500`}></div>
+                                </div>
+                            )
+                        })}
+                        {!isReadOnly && (<button onClick={() => setShowModal(true)} className="h-48 border-2 border-dashed border-slate-200 rounded-3xl flex flex-col items-center justify-center text-slate-400 hover:border-orange-300 hover:text-orange-500 hover:bg-orange-50/50 transition-all gap-3 group"><div className="w-14 h-14 rounded-full bg-slate-50 flex items-center justify-center group-hover:bg-white group-hover:shadow-md transition-all text-slate-400 group-hover:text-orange-500"><I n="plus" size={28}/></div><span className="font-bold text-sm">Tạo chủ đề mới</span></button>)}
+                    </div>
+                    {showModal && (
+                        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                            <div className="bg-white rounded-[24px] w-full max-w-sm p-6 shadow-2xl animate-in zoom-in-95 duration-200">
+                                <h3 className="font-extrabold text-xl mb-6 text-slate-800">Chủ đề mới</h3>
+                                <div className="space-y-4">
+                                    <div><label className="text-xs font-bold text-slate-400 ml-1 mb-1 block uppercase">Tên chủ đề</label><input autoFocus className="w-full bg-slate-50 border border-slate-200 p-4 rounded-2xl text-sm focus:border-orange-500 focus:ring-2 focus:ring-orange-200 outline-none font-bold text-slate-700" placeholder="VD: IELTS Writing..." value={newTopicName} onChange={e => setNewTopicName(e.target.value)}/></div>
+                                    <div className="flex justify-end gap-3 pt-2"><button onClick={() => setShowModal(false)} className="px-6 py-3 text-slate-500 font-bold hover:bg-slate-100 rounded-xl transition-colors">Hủy</button><button onClick={handleAddTopic} className="px-6 py-3 bg-orange-500 text-white rounded-xl font-bold hover:bg-orange-600 shadow-lg shadow-orange-200 transition-all">Tạo ngay</button></div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
+        const App = () => {
+            const [activeTab, setActiveTab] = useState('dashboard');
+            
+            // Xóa đăng nhập, mặc định quyền admin/chỉnh sửa luôn mở
+            const isReadOnly = false; 
+
+            const activeCourseData = DATA_VAT_LY;
+
+            const allTabs = [
+                {id:'dashboard', l:'Bảng tin', i:'grid'},
+                {id:'courses', l:'Tiến độ', i:'grad'},
+                {id:'schedule', l:'Lịch trình', i:'cal'}, 
+                {id:'lectures', l:'Bài giảng số', i:'vid'},
+                {id:'english', l:'Tiếng Anh', i:'eng'},
+                {id:'activities', l:'Ngoại khóa', i:'act'},
+            ];
+            
+            // Cho phép xem mọi tab
+            const visibleTabs = allTabs; 
+
+            const [statusMap, setStatusMap] = useState({});
+            const [scoreMap, setScoreMap] = useState({});
+            const [scheduleList, setScheduleList] = useState([]);
+            const [taskList, setTaskList] = useState([]);
+            const [timetableData, setTimetableData] = useState({});
+            const [examSchedule, setExamSchedule] = useState([]);
+            const [lectureSubjects, setLectureSubjects] = useState([]);
+            const [englishTopics, setEnglishTopics] = useState([]);
+
+            // Theo dõi dữ liệu Firestore mà không cần user đăng nhập
+            useEffect(() => {
+                let unsub;
+                if (window.DB_TOOLS) {
+                    const { db, doc, onSnapshot, setDoc } = window.DB_TOOLS;
+                    const docRef = doc(db, "data", "vat_ly");
+                    unsub = onSnapshot(docRef, (docSnap) => {
+                        if (docSnap.exists()) {
+                            const data = docSnap.data();
+                            setStatusMap(data.statusMap || {});
+                            setScoreMap(data.scoreMap || {});
+                            setScheduleList(data.scheduleList || []);
+                            setTaskList(data.taskList || []);
+                            setTimetableData(data.timetableData || {});
+                            setExamSchedule(data.examSchedule || []);
+                            setLectureSubjects(data.lectureSubjects || []);
+                            setEnglishTopics(data.englishTopics || []);
+                        } else {
+                            // Tạo doc mới nếu chưa có
+                            setDoc(docRef, { created: Date.now() }, { merge: true });
+                        }
+                    });
+                }
+                return () => unsub && unsub();
+            }, []);
+
+            const updateCloud = (key, data, setter) => {
+                setter(data); 
+                if (window.DB_TOOLS) {
+                    const { db, doc, setDoc } = window.DB_TOOLS;
+                    const docRef = doc(db, "data", "vat_ly");
+                    setDoc(docRef, { [key]: data }, { merge: true });
+                }
+            };
+
+            return (
+                <div className="min-h-screen flex flex-col md:flex-row bg-[#F8FAFC] font-sans">
+                    <aside className="hidden md:flex flex-col w-72 bg-white border-r border-slate-100 p-6 h-screen sticky top-0">
+                        <div className="flex items-center gap-3 mb-8 px-2">
+                            <div className="w-10 h-10 bg-slate-900 rounded-xl flex items-center justify-center text-white shadow-lg shadow-slate-200">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M7 7 L17 7 L17 17 L7 17 Z M7 17 L7 21 M17 17 L17 21" strokeOpacity="0"/><path d="M4 12 a8 8 0 0 1 8 -8 h1 a8 8 0 0 1 8 8 v2 a8 8 0 0 1 -8 8 h-1 a8 8 0 0 1 -8 -8 v-2" /><path d="M12 12 l4 0" /></svg>
+                            </div>
+                            <div>
+                                <h1 className="text-lg font-extrabold text-slate-900 leading-none tracking-tight">Gwen Planner</h1>
+                                <span className="text-[10px] text-slate-400 font-bold tracking-widest uppercase">A tiny workspace</span>
+                            </div>
+                        </div>
+                        
+                        <nav className="space-y-2 flex-1 mt-2">
+                            {visibleTabs.map(m => (
+                                <button key={m.id} onClick={() => setActiveTab(m.id)} className={`w-full flex items-center gap-4 px-4 py-3.5 rounded-2xl text-sm font-medium transition-all duration-200 ${activeTab === m.id ? 'bg-slate-900 text-white shadow-md shadow-slate-300' : 'text-slate-500 hover:bg-slate-100 hover:text-slate-900'}`}>
+                                    <I n={m.i} size={20} className={activeTab === m.id ? "text-white" : "text-slate-400"}/> {m.l}
+                                </button>
+                            ))}
+                        </nav>
+                    </aside>
+
+                    <main className="flex-1 h-screen overflow-y-auto md:custom-scrollbar relative">
+                        <div className="md:hidden"><UserHeader /></div>
+
+                        {activeTab === 'dashboard' && <DashboardView courseData={activeCourseData} statusMap={statusMap} scoreMap={scoreMap} scheduleList={scheduleList} taskList={taskList} examSchedule={examSchedule} lectureSubjects={lectureSubjects} englishTopics={englishTopics} setActiveTab={setActiveTab} />}
+                        
+                        {activeTab === 'schedule' && <ScheduleView scheduleList={scheduleList} updateScheduleList={(d) => updateCloud('scheduleList', d, setScheduleList)} taskList={taskList} updateTaskList={(d) => updateCloud('taskList', d, setTaskList)} timetableData={timetableData} updateTimetableData={(d) => updateCloud('timetableData', d, setTimetableData)} examSchedule={examSchedule} updateExamSchedule={(d) => updateCloud('examSchedule', d, setExamSchedule)} isReadOnly={isReadOnly} />}
+                        {activeTab === 'courses' && <TrackerView courseData={activeCourseData} statusMap={statusMap} updateStatusMap={(d) => updateCloud('statusMap', d, setStatusMap)} scoreMap={scoreMap} updateScoreMap={(d) => updateCloud('scoreMap', d, setScoreMap)} isReadOnly={isReadOnly} />}
+                        {activeTab === 'lectures' && <LecturesView subjects={lectureSubjects} updateSubjects={(d) => updateCloud('lectureSubjects', d, setLectureSubjects)} isReadOnly={isReadOnly} />}
+                        {activeTab === 'english' && <EnglishView topics={englishTopics} updateTopics={(d) => updateCloud('englishTopics', d, setEnglishTopics)} isReadOnly={isReadOnly} />}
+                        {activeTab === 'activities' && <PlaceholderView title="Hoạt động ngoại khóa" icon="act" />}
+                    </main>
+
+                    <div className="md:hidden fixed bottom-0 w-full bg-white/90 backdrop-blur-md border-t border-slate-200 flex justify-around p-2 pb-safe z-50 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">{visibleTabs.slice(0, 5).map(m => (<button key={m.id} onClick={() => setActiveTab(m.id)} className={`flex flex-col items-center p-2 rounded-xl transition-all ${activeTab === m.id ? 'text-indigo-600 bg-indigo-50' : 'text-slate-400'}`}><I n={m.i} size={20}/></button>))}</div>
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
